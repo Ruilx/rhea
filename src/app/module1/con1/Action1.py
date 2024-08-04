@@ -4,4 +4,4 @@ from src.framework.dry.base.action.item_action import ItemAction
 
 class Action1(ItemAction):
     def action(self):
-        return "Action1"
+        return "This is module1/con1/action1 executor"
