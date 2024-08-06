@@ -69,6 +69,7 @@ class EventLoopThread(object):
     def start(self):
         if not self.thread.is_alive():
             self.thread.start()
+            return
         raise RuntimeError("Event loop thread is already running.")
 
     def get_event_loop(self):

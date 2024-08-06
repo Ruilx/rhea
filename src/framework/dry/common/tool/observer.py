@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import pathlib
+import threading
 from threading import Event
 from typing import Generator
 
 from watchfiles import watch, Change
 
+from src.framework.dry.common.tool.event_loop import EventLoop
 from src.framework.dry.logger import Logger
 from src.util import helper
 
@@ -54,3 +56,31 @@ class Observer(object):
                 self.stop()
                 self._logger.error(f"Observer system error: {e!r}")
                 helper.log_exception(e, self._logger.error)
+
+
+class ObserverThread(object):
+    def __init__(self, loop: EventLoop, config: dict):
+        self._loop = loop
+        self._observer = Observer(config)
+        self._thread = threading.Thread(
+            None,
+            target=self._observer.daemon,
+            name="observer_thread",
+            daemon=True)
+        self._logger = Logger().get_logger(__name__)
+
+    def run(self):
+        if not self._loop.is_running():
+            raise RuntimeError("Event loop must be running")
+        if not self._thread.is_alive():
+            self._thread.start()
+            return
+        raise RuntimeError("Observer thread already running")
+
+    def stop(self, timeout: float | None = None):
+        if self._thread.is_alive():
+            self._observer.stop()
+            self._thread.join(timeout)
+
+    def is_running(self):
+        return self._thread.is_alive()
