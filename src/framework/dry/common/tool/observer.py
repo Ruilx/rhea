@@ -61,6 +61,8 @@ class Observer(object):
 class ObserverThread(object):
     def __init__(self, loop: EventLoop, config: dict):
         self._loop = loop
+        self._config = config
+        self._setup_config()
         self._observer = Observer(config)
         self._thread = threading.Thread(
             None,
@@ -68,6 +70,24 @@ class ObserverThread(object):
             name="observer_thread",
             daemon=True)
         self._logger = Logger().get_logger(__name__)
+
+    def __del__(self):
+        self._logger.info("ObserverThread __del__ call stop")
+        self.stop()
+
+    def _setup_config(self):
+        if "reload" not in self._config or not callable(self._config['reload']):
+            self._config['reload'] = self._handle_reload
+        if "do_reload" not in self._config or not callable(self._config['do_reload']):
+            raise ValueError(f"config.do_reload must be callable")
+
+    def _handle_reload(self, change: Change, path: str):
+        p = pathlib.Path(path).relative_to(self._config['path'])
+        self._loop.call_soon(self._config['do_reload'], (change, p))
+
+    def _watch_filter(self, change: Change, path: str) -> bool:
+        p = pathlib.Path(path).relative_to(self._config['path'])
+        return p.is_file() and p.suffix in ('.py', '.pyd', '.so')
 
     def run(self):
         if not self._loop.is_running():

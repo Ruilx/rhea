@@ -20,6 +20,7 @@ class Router(object):
         self.action_instances.append_event_handler(self.on_lru_event)
         self.logger = Logger().get_logger(__name__)
         self._walk_actions()
+        self.dump_router()
 
     def __del__(self):
         self.shutdown()
@@ -55,7 +56,6 @@ class Router(object):
             if isinstance(inst, BaseAction):
                 inst.shutdown(ActionStateCause.ActionShutdown)
         self.action_instances.clear()
-
 
     def _register_router(self, module, controller, action, module_path, class_name, file_path: Path):
         if module not in self.router:
