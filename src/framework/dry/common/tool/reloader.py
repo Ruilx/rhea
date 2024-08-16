@@ -13,7 +13,7 @@ class Reloader(object):
         self.action_instances: Lru = action_instances
         self._logger = Logger().get_logger(__name__)
 
-    def _reload_to_router(self, module: str, controller: str, action: str, file_path: str):
+    def _reload_to_router(self, file_path: str):
         empty_router_part = False
         assert module.strip().__len__() > 0, "module name can not be empty"
         if module not in self.router_map:
