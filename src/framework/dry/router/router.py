@@ -9,18 +9,19 @@ from src.framework.dry.base.action.base_action import BaseAction, ActionStateCau
 from src.framework.dry.common.algorithm.lru import Lru, LruEvent, LruItem
 from src.framework.dry.exception.httpError import HttpError, SysError, NotFoundError
 from src.framework.dry.logger import Logger
+from src.framework.dry.router.action_manager import ActionManager
 from src.util import helper
 
 
 class Router(object):
     def __init__(self, app_path: Path):
         self.app_path = app_path
-        self.router: [str, dict[str, dict[str, dict[str, ...]]]] = {}
-        self.action_instances: Lru = Lru(500)
-        self.action_instances.append_event_handler(self.on_lru_event)
+        # self.router: [str, dict[str, dict[str, dict[str, ...]]]] = {}
+        self.action_lru: Lru = Lru(500)
+        self.action_manager = ActionManager(app_path, self.action_lru)
+        self.action_lru.append_event_handler(self.on_lru_event)
         self.logger = Logger().get_logger(__name__)
         self._walk_actions()
-        self.dump_router()
 
     def __del__(self):
         self.shutdown()
@@ -51,56 +52,56 @@ class Router(object):
         #             if isinstance(action['inst'], BaseAction):
         #                 action['inst'].shutdown(ActionStateCause.ActionShutdown)
         #                 self.action_instances.delete(action['module_path'])
-        for action in self.action_instances.get_lru():
-            inst = self.action_instances.get(action)
+        for action in self.action_lru.get_lru():
+            inst = self.action_lru.get(action)
             if isinstance(inst, BaseAction):
                 inst.shutdown(ActionStateCause.ActionShutdown)
-        self.action_instances.clear()
+        self.action_lru.clear()
 
-    def _register_router(self, module, controller, action, module_path, class_name, file_path: Path):
-        if module not in self.router:
-            self.router[module] = {}
-        if controller not in self.router[module]:
-            self.router[module][controller] = {}
-        if action not in self.router[module][controller]:
-            self.router[module][controller][action] = {
-                'file_path': file_path,
-                'module': module,
-                'controller': controller,
-                'action': action,
-                'module_path': module_path,
-                'class_name': class_name,
-                'class_cls': None,
-            }
+    # def _register_router(self, module, controller, action, module_path, class_name, file_path: Path):
+    #     if module not in self.router:
+    #         self.router[module] = {}
+    #     if controller not in self.router[module]:
+    #         self.router[module][controller] = {}
+    #     if action not in self.router[module][controller]:
+    #         self.router[module][controller][action] = {
+    #             'file_path': file_path,
+    #             'module': module,
+    #             'controller': controller,
+    #             'action': action,
+    #             'module_path': module_path,
+    #             'class_name': class_name,
+    #             'class_cls': None,
+    #         }
 
-    def dump_router(self):
-        self.logger.info('↓\n' + helper.dump_obj(self.router))
+    # def dump_router(self):
+    #     self.logger.info('↓\n' + helper.dump_obj(self.router))
 
-    def _walk_actions(self):
-        for path in self.app_path.rglob("*.py"):
-            if path.name == "__init__.py":
-                continue
-
-            mod_path = path.relative_to(self.app_path).with_suffix('')
-            mod_parts = mod_path.parts
-            if mod_parts.__len__() < 0 or mod_parts.__len__() > 3:
-                self.logger.error(f"router {mod_path} (from file: {path}) has more than 3 steps and it's not supported.")
-                continue
-
-            if mod_parts.__len__() == 2:
-                if mod_parts[0] == mod_parts[1]:
-                    new_mod_parts = (mod_parts[0], '', '')
-                else:
-                    new_mod_parts = (*mod_parts, '', '')
-            elif mod_parts.__len__() == 3:
-                if mod_parts[1] == mod_parts[2]:
-                    new_mod_parts = (mod_parts[0], mod_parts[1], '')
-                else:
-                    new_mod_parts = mod_parts
-            else:
-                new_mod_parts = mod_parts
-
-            self._register_router(*new_mod_parts, '.'.join(mod_parts), inflection.camelize(mod_parts[-1]), path)
+    # def _walk_actions(self):
+    #     for path in self.app_path.rglob("*.py"):
+    #         if path.name == "__init__.py":
+    #             continue
+    #
+    #         mod_path = path.relative_to(self.app_path).with_suffix('')
+    #         mod_parts = mod_path.parts
+    #         if mod_parts.__len__() < 0 or mod_parts.__len__() > 3:
+    #             self.logger.error(f"router {mod_path} (from file: {path}) has more than 3 steps and it's not supported.")
+    #             continue
+    #
+    #         if mod_parts.__len__() == 2:
+    #             if mod_parts[0] == mod_parts[1]:
+    #                 new_mod_parts = (mod_parts[0], '', '')
+    #             else:
+    #                 new_mod_parts = (*mod_parts, '', '')
+    #         elif mod_parts.__len__() == 3:
+    #             if mod_parts[1] == mod_parts[2]:
+    #                 new_mod_parts = (mod_parts[0], mod_parts[1], '')
+    #             else:
+    #                 new_mod_parts = mod_parts
+    #         else:
+    #             new_mod_parts = mod_parts
+    #
+    #         self._register_router(*new_mod_parts, '.'.join(mod_parts), inflection.camelize(mod_parts[-1]), path)
 
     def route_handler(self, request: Request):
         try:
@@ -119,7 +120,7 @@ class Router(object):
                 raise NotFoundError('action not found.')
             handler = self.router[module_name][controller_name][action_name]
 
-            instance = self.action_instances.get(handler['module_path'])
+            instance = self.action_lru.get(handler['module_path'])
             if instance is None:
                 if handler['class_cls'] is None:
                     cls = import_from_string(f"{handler['module_path']}:{handler['class_name']}")
@@ -134,7 +135,7 @@ class Router(object):
 
                 instance = cls()
                 instance.init(cause)
-                self.action_instances.set(handler['module_path'], instance)
+                self.action_lru.set(handler['module_path'], instance)
 
             return instance.deal_request(request)
         except HttpError as e:

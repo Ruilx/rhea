@@ -44,9 +44,13 @@ class AbstractAction(object, metaclass=abc.ABCMeta):
         """
         ...
 
+    def is_launched(self):
+        return self._launched
+
     def shutdown(self, cause: ActionStateCause):
         if not self._launched:
-            raise RuntimeError("Action not launched")
+            # raise RuntimeError("Action not launched")
+            return
         try:
             return self._on_shutdown(cause)
         finally:
