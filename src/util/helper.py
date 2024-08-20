@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import traceback
-from traceback import TracebackException
 from typing import Callable
+
+from uvicorn.importer import import_from_string
 
 
 def log_exception(e: BaseException, logger_func: Callable, with_traceback: bool = True):
@@ -64,3 +65,7 @@ def dump_obj(obj):
 
     dump_recur(obj)
     return '\n'.join(line)
+
+
+def import_class(module_path: str, class_name: str):
+    return import_from_string(f"{module_path}.{class_name}")

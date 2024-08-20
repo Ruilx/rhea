@@ -2,11 +2,12 @@
 from pathlib import Path
 
 import inflection
+from threading import Lock
 
 from src.framework.dry.base.action.abstract_action import ActionStateCause
 from src.framework.dry.base.action.base_action import BaseAction
 from src.framework.dry.common.algorithm.lru import Lru
-from src.framework.dry.exception.httpError import NotFoundError
+from src.framework.dry.exception.httpError import NotFoundError, SysError
 from src.framework.dry.logger import Logger
 from src.util import helper
 
@@ -76,7 +77,29 @@ class ActionManager(object):
     def get_action(self, module, controller, action):
         if module not in self.actions:
             raise NotFoundError("module not found.")
+        if controller not in self.actions[module]:
+            raise NotFoundError("controller not found.")
+        if action not in self.actions[module][controller]:
+            raise NotFoundError("action not found.")
+        handler = self.actions[module][controller][action]
 
+        inst = self.action_lru.get(handler['module_path'])
+        if inst is None:
+            if handler['class_cls'] is None:
+                cls = helper.import_class(handler['module_path'], handler['class_name'])
+                handler['class_cls'] = cls
+                cause = ActionStateCause.ActionCoolStart
+            else:
+                cls = handler['class_cls']
+                cause = ActionStateCause.ActionStageAttach
+            if not issubclass(cls, BaseAction):
+                raise SysError("action is not valid")
+
+            inst = cls()
+            inst.init(cause)
+            self.action_lru.set(handler['module_path'], inst)
+
+        return inst
 
     def dump_router(self):
         self.logger.info('↓\n' + helper.dump_obj(self.actions))
