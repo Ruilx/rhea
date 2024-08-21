@@ -9,8 +9,9 @@ from src.framework.dry.common.context import Context
 from src.framework.dry.logger import Logger
 from src.util import helper
 
-ResponseType = Union[None | Response | list[SerializableType] | dict[str, SerializableType] |
-                     tuple[SerializableType] | str | int | float | bool]
+SerializableTypeContainer = Union[list[SerializableType] | dict[str, SerializableType] | tuple[SerializableType] | str | int | float | bool]
+
+ResponseType = Union[None | Response | SerializableTypeContainer]
 
 
 class ActionStateCause(Enum):
