@@ -26,6 +26,32 @@ class ActionManager(object):
         self.event_loop = asyncio.get_running_loop()
         self.logger = Logger().get_logger(__name__)
 
+    def _arrange_module(self, path: Path):
+        mod_path = path.relative_to(self.app_path).with_suffix('')
+        mod_parts = mod_path.parts
+        return mod_parts
+
+    def _arrange_module_parts(self, mod_parts: tuple[str, ...]):
+        if mod_parts.__len__() < 0 or mod_parts.__len__() > 3:
+            self.logger.error(f"invalid module parts '{'.'.join(mod_parts)}'")
+            self.logger.error("rhea only support that route path is less/equal than 3 steps.")
+            return
+
+        if mod_parts.__len__() == 2:
+            if mod_parts[0] == mod_parts[1]:
+                new_mod_parts = (mod_parts[0], '', '')
+            else:
+                new_mod_parts = (*mod_parts, '', '')
+        elif mod_parts.__len__() == 3:
+            if mod_parts[1] == mod_parts[2]:
+                new_mod_parts = (mod_parts[0], mod_parts[1], '')
+            else:
+                new_mod_parts = mod_parts
+        else:
+            new_mod_parts = mod_parts
+
+        return new_mod_parts
+
     def _set_router(self, module, controller, action, module_path, class_name, file_path: Path, load_type: ActionLoadType):
         if module not in self.actions:
             self.actions[module] = {}
@@ -44,7 +70,6 @@ class ActionManager(object):
             'module_path': module_path,
             'class_name': class_name,
             'class_cls': None,
-            'loaded': False,
         }
 
     def _unset_router(self, module, controller, action, load_type: ActionLoadType):
@@ -77,51 +102,16 @@ class ActionManager(object):
         if path.name == '__init__.py':
             self.logger.error("cannot import file: __init__.py, not supported.")
             return
-
-        mod_path = path.relative_to(self.app_path).with_suffix('')
-        mod_parts = mod_path.parts
-        if mod_parts.__len__() < 0 or mod_parts.__len__() > 3:
-            self.logger.error(f"invalid module path {mod_path}")
-            self.logger.error("rhea only support that route path is less/equal than 3 steps.")
-            return
-
-        if mod_parts.__len__() == 2:
-            if mod_parts[0] == mod_parts[1]:
-                new_mod_parts = (mod_parts[0], '', '')
-            else:
-                new_mod_parts = (*mod_parts, '', '')
-        elif mod_parts.__len__() == 3:
-            if mod_parts[1] == mod_parts[2]:
-                new_mod_parts = (mod_parts[0], mod_parts[1], '')
-            else:
-                new_mod_parts = mod_parts
-        else:
-            new_mod_parts = mod_parts
-
+        mod_parts = self._arrange_module(path)
+        new_mod_parts = self._arrange_module_parts(mod_parts)
         self._set_router(*new_mod_parts, '.'.join(mod_parts), inflection.camelize(mod_parts[-1]), path)
 
     def unload_file(self, path: Path):
         if path.name == '__init__.py':
             self.logger.error("cannot unload file: __init__.py, not supported.")
             return
-
-        mod_path = path.relative_to(self.app_path).with_suffix('')
-        mod_parts = mod_path.parts
-        if mod_parts.__len__() == 2:
-            if mod_parts[0] == mod_parts[1]:
-                new_mod_parts = (mod_parts[0], '', '')
-            else:
-                new_mod_parts = (*mod_parts, '', '')
-        elif mod_parts.__len__() == 3:
-            if mod_parts[1] == mod_parts[2]:
-                new_mod_parts = (mod_parts[0], mod_parts[1], '')
-            else:
-                new_mod_parts = mod_parts
-        else:
-            new_mod_parts = mod_parts
-
+        new_mod_parts = self._arrange_module_parts(self._arrange_module(path))
         self._unset_router(*new_mod_parts, load_type=ActionLoadType.Load4Startup)
-
 
     def get_action(self, module, controller, action):
         if module not in self.actions:
