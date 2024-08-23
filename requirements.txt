@@ -6,5 +6,4 @@ click~=8.1.7
 ujson~=5.10.0
 inflection~=0.5.1
 numpy~=2.0.1
-
 watchfiles~=0.22.0

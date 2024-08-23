@@ -15,5 +15,7 @@ class Reloader(object):
     def reload(self, change: Change, path: pathlib.Path):
         if change == Change.added:
             self.action_manager.load_file(path)
-            self._logger.info(f"file: {path} is reloaded.")
+            self._logger.info(f"file: {path} is loaded.")
         elif change == Change.modified:
+            self.action_manager.load_file(path)
+            self._logger.info(f"file: {path} is reloaded.")
