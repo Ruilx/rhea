@@ -18,6 +18,7 @@ class ActionLoadType(enum.Enum):
     Load4Startup = enum.auto()
     Load4Reload = enum.auto()
 
+
 class ActionManager(object):
     def __init__(self, app_path: Path, action_lru: Lru):
         self.app_path = app_path
