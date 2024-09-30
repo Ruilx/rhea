@@ -7,7 +7,7 @@ from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, R
 
 from src.framework.dry.assets.about import __slogan__
 from src.framework.dry.exception import httpError
-from src.framework.dry.exception.httpError import HttpError
+from src.framework.dry.exception.httpError import HttpError, RejectedError, NotFoundError, NoPermit, AuthError
 
 
 async def index_handler(request: Request) -> Response:
@@ -37,18 +37,29 @@ async def robots_handler(request: Request) -> Response:
     return FileResponse("public/robots.txt", media_type='text/plain')
 
 
-def _http_exception_handler(request: Request, e: HTTPException) -> Response:
+HttpErrorTable = {
+    400: RejectedError,
+    401: AuthError,
+    403: NoPermit,
+    404: NotFoundError,
+    405: 4999,
+}
+
+
+def http_exception_handler(request: Request, e: HTTPException) -> Response:
+    error_or_int = HttpErrorTable.get(e.status_code, 6999)
+    code = error_or_int.Code if hasattr(error_or_int, 'Code') else int(error_or_int)
     return JSONResponse(
         status_code=e.status_code,
         content={
             'msg': e.detail,
-            'code': 4005,
+            'code': code,
             'data': {}
         }
     )
 
 
-def _http_error_handler(request: Request, e: httpError) -> Response:
+def http_error_handler(request: Request, e: HttpError) -> Response:
     return JSONResponse(
         status_code=200,
         content={
@@ -80,15 +91,22 @@ def system_error_handler(request: Request, e: Exception) -> Response:
     )
 
 
+def common_http_exception(request: Request, e: Exception) -> Response:
+    if isinstance(e, HTTPException):
+        return http_exception_handler(request, e)
+    else:
+        return system_error_handler(request, e)
+
+
 def not_found_handler(request: Request, e: Exception) -> Response:
     if isinstance(e, HTTPException):
-        return _http_exception_handler(request, e)
+        return http_exception_handler(request, e)
     else:
         return system_error_handler(request, e)
 
 
 def service_error_handler(request: Request, e: Exception) -> Response:
     if isinstance(e, HttpError):
-        return _http_error_handler(request, e)
+        return http_error_handler(request, e)
     else:
         return system_error_handler(request, e)

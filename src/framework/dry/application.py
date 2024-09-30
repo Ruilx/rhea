@@ -3,12 +3,13 @@ import asyncio
 import os
 import sys
 import pathlib
+from http.client import HTTPException
 
 from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 
 from src.framework.dry.base.endpoint import env_handler, favicon_handler, index_handler, not_found_handler, \
-    robots_handler, system_error_handler, service_error_handler, info_handler
+    robots_handler, system_error_handler, service_error_handler, info_handler, http_exception_handler, common_http_exception
 from src.framework.dry.common.context import Context
 from src.framework.dry.common.tool.event_loop import EventLoopThread, EventLoop
 from src.framework.dry.exception.httpError import HttpError, NotFoundError
@@ -85,6 +86,7 @@ class Application(FastAPI):
 
     def _setup_exceptions(self):
         self.add_exception_handler(404, not_found_handler)
+        self.add_exception_handler(HTTPException, common_http_exception)
         self.add_exception_handler(NotFoundError, not_found_handler)
         self.add_exception_handler(HttpError, service_error_handler)
         self.add_exception_handler(Exception, system_error_handler)
