@@ -15,6 +15,7 @@ from src.util import helper
 
 
 class ActionLoadType(enum.Enum):
+    Auto = enum.auto()
     Load4Startup = enum.auto()
     Load4Reload = enum.auto()
 
@@ -53,13 +54,13 @@ class ActionManager(object):
 
         return new_mod_parts
 
-    def _set_router(self, module, controller, action, module_path, class_name, file_path: Path, load_type: ActionLoadType):
+    def _set_router(self, module, controller, action, module_path, class_name, file_path: Path):
         if module not in self.actions:
             self.actions[module] = {}
         if controller not in self.actions[module]:
             self.actions[module][controller] = {}
         if action in self.actions[module][controller]:
-            self._unset_router(module, controller, action, load_type)
+            self._unset_router(module, controller, action, ActionLoadType.Load4Reload)
             # if current_action_inst and isinstance(current_action_inst, BaseAction) and current_action_inst.is_launched():
             #     current_action_inst.shutdown(ActionStateCause.ActionShutdown)
             # self.action_lru.delete(current_action['module_path'])

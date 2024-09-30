@@ -3,6 +3,7 @@ import asyncio
 import sys
 from typing import IO
 
+
 async def slow_print(msg: str, speed: float = 0.05, print_func=print):
     c = []
     s = ''

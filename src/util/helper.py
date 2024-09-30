@@ -68,4 +68,4 @@ def dump_obj(obj):
 
 
 def import_class(module_path: str, class_name: str):
-    return import_from_string(f"{module_path}.{class_name}")
+    return import_from_string(f"{module_path}:{class_name}")
