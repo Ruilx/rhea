@@ -4,7 +4,6 @@ import enum
 from pathlib import Path
 
 import inflection
-from threading import Lock
 
 from src.framework.dry.base.action.abstract_action import ActionStateCause
 from src.framework.dry.base.action.base_action import BaseAction

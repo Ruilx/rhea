@@ -15,7 +15,6 @@ from uvicorn.middleware.message_logger import MessageLoggerMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from src.framework.dry.assets.about import About
-from src.framework.dry.base.types import StructType
 from src.framework.dry.common.context import Context, SerializableContext
 from src.framework.dry.logger import Logger
 

@@ -10,6 +10,14 @@ from src.framework.dry.common.tool.event_loop import EventLoop
 from src.framework.dry.logger import Logger
 from src.util import helper
 
+"""
+Observer 是文件监控更新的组件
+config: {
+    path: str 被监控的目录
+    watch_filter: callable, 监控文件过滤器，可选
+    reload: callable[Change, str], 文件更新回调
+}
+"""
 
 class Observer(object):
     def __init__(self, config: dict):
@@ -35,7 +43,8 @@ class Observer(object):
             self._observer = watch(
                 self._config['path'],
                 watch_filter=self._config.get('watch_filter', self.watch_filter),
-                stop_event=self._stop)
+                stop_event=self._stop
+            )
         while not self._stop.set():
             try:
                 changes = next(self._observer)
@@ -57,6 +66,14 @@ class Observer(object):
                 self._logger.error(f"Observer system error: {e!r}")
                 helper.log_exception(e, self._logger.error)
 
+
+"""
+ObeserverThread 用来处理监控的进度流程，并生成线程用于监控文件变化。
+config: {
+    reload: callable[Change, str<path>] 文件更新回调
+    do_reload: callable[Change, Pathlib] 重新文件处理外部方法
+}
+"""
 
 class ObserverThread(object):
     def __init__(self, loop: EventLoop, config: dict):
