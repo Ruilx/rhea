@@ -92,14 +92,18 @@ def system_error_handler(request: Request, e: Exception) -> Response:
 
 
 def common_http_exception(request: Request, e: Exception) -> Response:
-    if isinstance(e, HTTPException):
+    if isinstance(e, HttpError):
+        return http_error_handler(request, e)
+    elif isinstance(e, HTTPException):
         return http_exception_handler(request, e)
     else:
         return system_error_handler(request, e)
 
 
 def not_found_handler(request: Request, e: Exception) -> Response:
-    if isinstance(e, HTTPException):
+    if isinstance(e, HttpError):
+        return http_error_handler(request, e)
+    elif isinstance(e, HTTPException):
         return http_exception_handler(request, e)
     else:
         return system_error_handler(request, e)

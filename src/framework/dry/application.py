@@ -86,9 +86,9 @@ class Application(FastAPI):
 
     def _setup_exceptions(self):
         self.add_exception_handler(404, not_found_handler)
-        self.add_exception_handler(HTTPException, common_http_exception)
         self.add_exception_handler(NotFoundError, not_found_handler)
         self.add_exception_handler(HttpError, service_error_handler)
+        self.add_exception_handler(HTTPException, common_http_exception)
         self.add_exception_handler(Exception, system_error_handler)
 
     def _setup_statics(self):
