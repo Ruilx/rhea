@@ -4,7 +4,7 @@ import sys
 from typing import IO
 
 
-async def slow_print(msg: str, speed: float = 0.05, print_func=print):
+async def slow_print(msg: str, speed: float = 0.02, print_func=print):
     c = []
     s = ''
     for char in msg:
@@ -24,7 +24,7 @@ async def slow_print(msg: str, speed: float = 0.05, print_func=print):
     print_func()
 
 
-async def slow_print_to_io(msg: str, speed: float = 0.05, io: IO = sys.stdout):
+async def slow_print_to_io(msg: str, speed: float = 0.02, io: IO = sys.stdout):
     c = []
     s = ''
     for char in msg:

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 
+import objprint
 from starlette.exceptions import HTTPException
 from fastapi import Request
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, Response
@@ -15,14 +16,7 @@ async def index_handler(request: Request) -> Response:
 
 
 async def info_handler(request: Request) -> Response:
-    res = {}
-    res['app'] = {
-        '_': f"{request.app!s}",
-        'app_router': {
-            '_': f"{request.app.app_router}"
-        }
-    }
-    return JSONResponse("INFO PLACEHOLDER")
+    return PlainTextResponse(objprint.objjson(request.app))
 
 
 async def env_handler(request: Request) -> Response:
