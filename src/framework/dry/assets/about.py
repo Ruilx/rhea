@@ -6,7 +6,7 @@ __version__ = '.'.join(map(lambda x: str(x), __version_tuple__))
 __author__ = 'Ruilx'
 
 __desc__ = 'A FastAPI ASGI web framework'
-__slogan__ = 'Embark from \'Rhea\', unleash infinite creations!'
+__slogan__ = 'Embark on \'Rhea\', unleash infinite creations!'
 
 import asyncio
 import sys

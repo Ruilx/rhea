@@ -7,7 +7,6 @@ from fastapi import Request
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
 from src.framework.dry.assets.about import __slogan__
-from src.framework.dry.exception import httpError
 from src.framework.dry.exception.httpError import HttpError, RejectedError, NotFoundError, NoPermit, AuthError
 
 
