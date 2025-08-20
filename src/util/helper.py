@@ -42,21 +42,30 @@ SpecialString = {
 
 def dump_obj(obj):
     line = []
+    ids = set()
 
     def dump_recur(o, depth=0, prefix='+-- '):
         if isinstance(o, dict):
+            if id(o) in ids:
+                line[-1] += f"<{o.__class__.__name__} {hex(id(o))} ...>"
+                return
+            ids.add(id(o))
             if not o:
-                line.append(f"{'    ' * (depth - 1)}{prefix if depth > 0 else ''}{{}}")
+                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}{{}}")
                 return
             for k, v in o.items():
-                line.append(f"{'    ' * (depth - 1)}{prefix if depth > 0 else ''}{SpecialString[k] if k in SpecialString else k}: ")
+                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}{SpecialString[k] if k in SpecialString else k}: ")
                 dump_recur(v, depth + 1, prefix)
         elif isinstance(o, list | tuple | set):
+            if id(o) in ids:
+                line[-1] += f"<{o.__class__.__name__} {hex(id(o))} ...>"
+                return
+            ids.add(id(o))
             if not o:
-                line.append(f"{'    ' * (depth - 1)}{prefix if depth > 0 else ''}[]")
+                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}[]")
                 return
             for i, v in enumerate(o):
-                line.append(f"{'    ' * (depth - 1)}{prefix if depth > 0 else ''}[{i}]: ")
+                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}[{i}]: ")
                 dump_recur(v, depth + 1, prefix)
         elif isinstance(o, str):
             line[-1] += f"\"{o}\""
