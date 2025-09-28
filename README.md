@@ -9,7 +9,7 @@ Rhea，FastAPI的通用HTTP API接口项目
 
 ## Features
 
-1. Python 3.10+
+1. Python 3.12+
 2. 基于FastAPI作为ASGI框架
 3. 应用事件循环
 4. 优美的数据库操作调用
