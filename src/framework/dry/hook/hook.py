@@ -27,6 +27,7 @@ class HookName(IntEnum):
     OnActionBegin = auto()
     OnActionFinish = auto()
     OnActionException = auto()
+    OnSystemException = auto()
 
 
 @singleton
