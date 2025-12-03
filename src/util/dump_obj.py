@@ -1,10 +1,169 @@
 # -*- coding: utf-8 -*-
-from typing import overload
+from types import FunctionType
+from typing import overload, Callable, TypeVar
 
 import fastapi
+import typing_extensions
 from starlette.requests import Request
 
 from src.framework.dry.base.types import NumberType
+
+class Dump(object):
+    T = TypeVar("T")
+
+    MagicMethods = [
+        *(object().__dir__()),
+    ]
+
+    def __init__(self, obj: object):
+        self.obj = obj
+        self.pretty_print = False
+
+        self.handles : dict[type, Callable[[object, int], str]] = {
+            dict: self._dump_dict,
+            list: self._dump_list,
+            tuple: self._dump_tuple,
+            str: self._dump_str,
+            bool: self._dump_bool,
+            int: self._dump_number,
+            float: self._dump_number,
+            complex: self._dump_number,
+            None: self._dump_none,
+            Ellipsis: self._dump_ellipsis,
+            BaseException: self._dump_base_exception,
+            object: self._dump_object,
+        }
+
+        self.id_table = {}
+
+        self.hex_id_format = True
+
+        self.indent_length = 4
+        self.indent_prefix = "+-- "
+        self.indent_gap = " " * self.indent_length
+
+        # 是否只显示前head_count项，防止项目数过多，导致打印卡住。None就不限制，可能有打印卡住的危险。
+        self.head_count: int | None = 100
+
+        # 是否只向下挖掘depth深度，防止递归次数过多。None就不限制，可能结构会出现混乱。
+        self.depth: int | None = 5
+
+        # 如果发现循环引用的变量，是显示明细还是直接显示"..."
+        self.str_if_recur = Ellipsis
+
+    def _build_prefix_indent(self, indent: int) -> str:
+        if indent <= 0:
+            return ""
+        elif indent == 1:
+            return self.indent_prefix
+        else:
+            return f"{self.indent_gap * (indent - 1)}{self.indent_prefix}"
+
+    def _build_object_id(self, obj: object) -> str:
+        if self.hex_id_format:
+            return hex(id(obj))
+        return str(id(obj))
+
+    def _build_ref_info(self, obj: object) -> str:
+        return f"Ref@{self._build_object_id(obj)}"
+
+    def check_obj_is_new(self, obj: object):
+        if self.id_table.__contains__(obj):
+            return False
+        else:
+            self.id_table[obj] = id(obj)
+            return True
+
+
+    def set_pretty_print(self, pretty_print: bool):
+        """
+        是否使用树形优美打印方案，将会单独处理dict、list等带有特殊str的描述的内容。
+        :param pretty_print: bool
+        :return: None
+        """
+        self.pretty_print = pretty_print
+
+    def set_indent_length(self, indent_length: int):
+        """
+        设置缩进长度，默认为4
+        :param indent_length:
+        :return:
+        """
+        self.indent_length = indent_length
+
+    def set_indent_prefix(self, indent_prefix: str):
+        """
+        设置缩进前缀，默认是“+-- ”
+        :param indent_prefix:
+        :return:
+        """
+        self.indent_prefix = indent_prefix
+
+    def set_indent_gap(self, indent_gap: str):
+        """
+        设置缩进前缀前的空格，默认是indent_length * " "
+        :param indent_gap:
+        :return:
+        """
+        self.indent_gap = indent_gap
+
+    def register_handle(self, t: T, handle: Callable[[object, int], str]):
+        self.handles[t] = handle
+
+
+    def _dump_dict(self, obj: dict, indent: int = 0) -> str:
+        if self.pretty_print:
+            pstr = [f"{self._build_prefix_indent(indent)}<dict @={self._build_object_id(obj)} __len__={obj.__len__()}>"]
+            indent += 1
+            for key, value in obj.items():
+                pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self.dump(value, indent=indent)}")
+
+        return obj.__str__()
+
+    def _dump_list(self, obj: list, indent: int = 0) -> str:
+        if self.pretty_print:
+            ...
+        return obj.__str__()
+
+    def _dump_tuple(self, obj: tuple, indent: int = 0) -> str:
+        if self.pretty_print:
+            ...
+        return obj.__str__()
+
+    def _dump_str(self, obj: str, indent: int = 0) -> str:
+        if self.pretty_print:
+            ...
+        return f"'{obj}'"
+
+    def _dump_bool(self, obj: bool, indent: int = 0) -> str:
+        return obj.__str__()
+
+    def _dump_number(self, obj: NumberType, indent: int = 0) -> str:
+        return obj.__str__()
+
+    def _dump_none(self, obj: None, indent: int = 0) -> str:
+        return "None"
+
+    def _dump_ellipsis(self, obj: ellipsis, indent: int = 0) -> str:
+        return "..."
+
+    def _dump_base_exception(self, obj: BaseException, indent: int = 0) -> str:
+        return "BaseException"
+
+    def _dump_object(self, obj: object, indent: int = 0) -> str:
+        ...
+
+    def _dump(self, obj: object, indent: int) -> str:
+        if self.depth is not None and indent > self.depth:
+            return ""
+        for mro_item in obj.__class__.mro():
+            if self.handles.__contains__(mro_item):
+                return self.handles[mro_item](obj, indent)
+        return f"<Object @={self._build_object_id(obj)} not in handle>"
+
+    def dump(self, obj: object, /, indent: int = 0, printer: Callable[..., None | int] = print) :
+        printer(self._dump(obj, indent))
+
 
 # Dump太费事了, 不想写了
 
