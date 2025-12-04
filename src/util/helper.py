@@ -83,7 +83,7 @@ def import_class(module_path: str, class_name: str):
     return import_from_string(f"{module_path}:{class_name}")
 
 
-def get_object_id(obj: object, hex_format: bool = False) -> str:
+def get_object_id(obj: object, hex_format: bool = True) -> str:
     if hex_format:
         return hex(id(obj))
     return str(id(obj))
