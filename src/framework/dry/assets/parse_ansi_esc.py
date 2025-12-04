@@ -225,16 +225,16 @@ def print_ascii_and_esc(asciis, esc_seqs):
         print(esc_seq)
 
 
-def main():
-    with open(r'\\wsl$\Ubuntu-20.04\tmp\rhea.ban', 'r', encoding="utf-8") as f:
-        asciis, esc_seqs = extract_ansi_esc(f)
-    for i in range(asciis.__len__()):
-        for j in range(asciis[i].__len__()):
-            if asciis[i][j] == ' ':
-                esc_seqs[i][j] = ''
-    print_ascii_and_esc(asciis, esc_seqs)
-    print_rendered(asciis, esc_seqs)
-
-
-if __name__ == '__main__':
-    main()
+# def main():
+#     with open(r'\\wsl$\Ubuntu-20.04\tmp\rhea.ban', 'r', encoding="utf-8") as f:
+#         asciis, esc_seqs = extract_ansi_esc(f)
+#     for i in range(asciis.__len__()):
+#         for j in range(asciis[i].__len__()):
+#             if asciis[i][j] == ' ':
+#                 esc_seqs[i][j] = ''
+#     print_ascii_and_esc(asciis, esc_seqs)
+#     print_rendered(asciis, esc_seqs)
+#
+#
+# if __name__ == '__main__':
+#     main()

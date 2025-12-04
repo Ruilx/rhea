@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from types import FunctionType
+import sys
+import types
+from types import FunctionType, CodeType
 from typing import overload, Callable, TypeVar
 
 import fastapi
@@ -7,6 +9,8 @@ import typing_extensions
 from starlette.requests import Request
 
 from src.framework.dry.base.types import NumberType
+from util.helper import get_object_id, get_obj_class_str, get_ref_info, str_escape
+
 
 class Dump(object):
     T = TypeVar("T")
@@ -15,14 +19,14 @@ class Dump(object):
         *(object().__dir__()),
     ]
 
-    def __init__(self, obj: object):
-        self.obj = obj
+    def __init__(self):
         self.pretty_print = False
 
         self.handles : dict[type, Callable[[object, int], str]] = {
             dict: self._dump_dict,
             list: self._dump_list,
             tuple: self._dump_tuple,
+            set: self._dump_set,
             str: self._dump_str,
             bool: self._dump_bool,
             int: self._dump_number,
@@ -31,10 +35,11 @@ class Dump(object):
             None: self._dump_none,
             Ellipsis: self._dump_ellipsis,
             BaseException: self._dump_base_exception,
+            type: self._dump_type,
             object: self._dump_object,
         }
 
-        self.id_table = {}
+        self.id_table: dict[int, object] = {}
 
         self.hex_id_format = True
 
@@ -59,21 +64,12 @@ class Dump(object):
         else:
             return f"{self.indent_gap * (indent - 1)}{self.indent_prefix}"
 
-    def _build_object_id(self, obj: object) -> str:
-        if self.hex_id_format:
-            return hex(id(obj))
-        return str(id(obj))
-
-    def _build_ref_info(self, obj: object) -> str:
-        return f"Ref@{self._build_object_id(obj)}"
-
-    def check_obj_is_new(self, obj: object):
-        if self.id_table.__contains__(obj):
+    def _check_obj_is_new(self, obj: object):
+        if self.id_table.__contains__(id(obj)):
             return False
         else:
-            self.id_table[obj] = id(obj)
+            self.id_table[id(obj)] = obj
             return True
-
 
     def set_pretty_print(self, pretty_print: bool):
         """
@@ -113,57 +109,101 @@ class Dump(object):
 
     def _dump_dict(self, obj: dict, indent: int = 0) -> str:
         if self.pretty_print:
-            pstr = [f"{self._build_prefix_indent(indent)}<dict @={self._build_object_id(obj)} __len__={obj.__len__()}>"]
+            pstr = [f"{self._build_prefix_indent(indent)}<dict @={get_object_id(obj)} __sizeof__={obj.__sizeof__()} __len__={obj.__len__()}>"]
             indent += 1
-            for key, value in obj.items():
-                pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self.dump(value, indent=indent)}")
-
-        return obj.__str__()
+            for index, (key, value) in enumerate(obj.items()):
+                if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                    pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self._dump(value, indent=indent)}")
+                else:
+                    pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
+                    break
+            return "\n".join(pstr)
+        return f"<dict> {obj.__str__()}"
 
     def _dump_list(self, obj: list, indent: int = 0) -> str:
         if self.pretty_print:
-            ...
-        return obj.__str__()
+            pstr = [f"{self._build_prefix_indent(indent)}<list @={get_object_id(obj)} __sizeof__={obj.__sizeof__()} __len__={obj.__len__()}>"]
+            indent += 1
+            for index, value in enumerate(obj):
+                if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                    pstr.append(f"{self._build_prefix_indent(indent)}[{index}] = {self._dump(value, indent=indent)}")
+            return "\n".join(pstr)
+        return f"<list> {obj.__str__()}"
 
     def _dump_tuple(self, obj: tuple, indent: int = 0) -> str:
         if self.pretty_print:
-            ...
-        return obj.__str__()
+            pstr = [f"{self._build_prefix_indent(indent)}<tuple @={get_object_id(obj)} __sizeof__={obj.__sizeof__()} __len__={obj.__len__()}>"]
+            indent += 1
+            for index, value in enumerate(obj):
+                pstr.append(f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent=indent)}")
+            return "\n".join(pstr)
+        return f"<tuple> {obj.__str__()}"
+
+    def _dump_set(self, obj: set, indent: int = 0) -> str:
+        if self.pretty_print:
+            pstr = [f"{self._build_prefix_indent(indent)}<set @={get_object_id(obj)} __sizeof__={obj.__sizeof__()} __len__={obj.__len__()}>"]
+            indent += 1
+            for index, value in enumerate(obj):
+                pstr.append(f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent=indent)}")
+            return "\n".join(pstr)
+        return f"<set> {obj.__str__()}"
 
     def _dump_str(self, obj: str, indent: int = 0) -> str:
-        if self.pretty_print:
-            ...
-        return f"'{obj}'"
+        # str.encode().decode() maybe leak some performance
+        return f"<str @={get_object_id(obj)} __sizeof__={obj.__sizeof__()} __len__={obj.__len__()}> {str_escape(obj)}"
 
     def _dump_bool(self, obj: bool, indent: int = 0) -> str:
-        return obj.__str__()
+        return f"<bool> {obj.__str__()}"
 
     def _dump_number(self, obj: NumberType, indent: int = 0) -> str:
-        return obj.__str__()
+        return f"<{obj.__class__.__name__} __sizeof__={obj.__sizeof__()}> {obj.__str__()}"
 
     def _dump_none(self, obj: None, indent: int = 0) -> str:
-        return "None"
+        return "<None>"
 
-    def _dump_ellipsis(self, obj: ellipsis, indent: int = 0) -> str:
+    def _dump_ellipsis(self, obj: types.EllipsisType, indent: int = 0) -> str:
         return "..."
 
     def _dump_base_exception(self, obj: BaseException, indent: int = 0) -> str:
-        return "BaseException"
+        return f"<{get_obj_class_str(obj)} @={get_object_id()} msg={str_escape(obj.__str__())}>"
+
+    def _dump_type(self, t: type, indent: int = 0) -> str:
+        module = t.__module__
+        if module == "builtins" and not t.__flags__ & 0x200:
+            return f"<class '{t.__qualname__}'>"
+        return f"<class '{t.__module__}.{t.__qualname__}'>"
 
     def _dump_object(self, obj: object, indent: int = 0) -> str:
-        ...
+        if self.pretty_print:
+            return f"<object !pretty print>"
+        return f"<object>"
 
     def _dump(self, obj: object, indent: int) -> str:
         if self.depth is not None and indent > self.depth:
             return ""
-        for mro_item in obj.__class__.mro():
+        if not self._check_obj_is_new(obj):
+            if self.str_if_recur is not Ellipsis:
+                return f"{self._build_prefix_indent(indent)}<{obj.__class__.__name__} {get_ref_info(obj)}>"
+            else:
+                return str(self.str_if_recur)
+        for mro_item in obj.__class__.__mro__:
+            print(f"finding {mro_item} in self.handles...")
             if self.handles.__contains__(mro_item):
+                print(f"found! {mro_item} in self.handles. value={self.handles[mro_item]}")
                 return self.handles[mro_item](obj, indent)
-        return f"<Object @={self._build_object_id(obj)} not in handle>"
+        return f"<{self._build_prefix_indent(indent)}{get_obj_class_str(obj)} object @={get_object_id(obj)} __sizeof__={obj.__sizeof__()}>"
 
     def dump(self, obj: object, /, indent: int = 0, printer: Callable[..., None | int] = print) :
         printer(self._dump(obj, indent))
 
+
+if __name__ == "__main__":
+    class A:
+        ...
+
+    d = Dump()
+    d.register_handle(A, lambda o, i: "Hello, world!")
+    d.dump(A())
 
 # Dump太费事了, 不想写了
 
