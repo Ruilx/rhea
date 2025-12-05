@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
+import sys
 import types
-from typing import overload, Callable, TypeVar, Self, Optional
+from typing import overload, Callable, TypeVar, Self, Optional, Literal
 
 from src.framework.dry.base.types import NumberType
 from util.helper import get_object_id, get_obj_class_str, get_ref_info, str_escape
@@ -12,9 +13,18 @@ class Dump(object):
     MagicMethods = {
         *(object().__dir__()),
         *((lambda: ...).__dir__()),
+        *(filter(lambda x: x.startswith("__"), type.__dict__.keys())),
         "__func__",
         "__self__",
-        "__weakref__"
+        "__weakref__",
+        "__set__",
+        "__delete__",
+        "__objclass__",
+        "__wrapped__",
+        "__mro_entries__",
+        "__getitem__",
+        "__getattr__",
+        "__slots__",
     }
 
     LenStr = '__len__'
@@ -56,6 +66,11 @@ class Dump(object):
 
         # 如果发现循环引用的变量，是显示明细还是直接显示"..."
         self.str_if_recur: Optional[str | Ellipsis] = None
+
+        # 打印颜色(未实现)
+        # Escape： 使用"\e["字符来在xterm终端显示颜色。
+        # HTML： 使用"<span class="...">...</span>"的方式来在网页上显示。
+        self.color: Optional[Literal["Escape", "HTML"]] = None
 
     def _build_prefix_indent(self, indent: int, /, inline = False) -> str:
         if inline or indent <= 0:
@@ -113,53 +128,57 @@ class Dump(object):
 
     def _dump_dict(self, obj: dict, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         if self.pretty_print:
-            pstr = [f"{self._build_prefix_indent(indent)}<dict @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
-            indent += 1
-            for index, (key, value) in enumerate(obj.items()):
-                if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self._dump(value, indent=indent)}")
-                else:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
-                    break
+            pstr = [f"{self._build_prefix_indent(indent, inline)}<dict @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
+            if self.depth is not None and depth <= self.depth:
+                indent += 1
+                for index, (key, value) in enumerate(obj.items()):
+                    if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self._dump(value, indent, depth + 1, True)}")
+                    else:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
+                        break
             return "\n".join(pstr)
         return f"<dict> {obj.__str__()}"
 
     def _dump_list(self, obj: list, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         if self.pretty_print:
-            pstr = [f"{self._build_prefix_indent(indent)}<list @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
-            indent += 1
-            for index, value in enumerate(obj):
-                if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[{index}] = {self._dump(value, indent=indent)}")
-                else:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
-                    break
+            pstr = [f"{self._build_prefix_indent(indent, inline)}<list @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
+            if self.depth is not None and depth <= self.depth:
+                indent += 1
+                for index, value in enumerate(obj):
+                    if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[{index}] = {self._dump(value, indent, depth + 1, True)}")
+                    else:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
+                        break
             return "\n".join(pstr)
         return f"<list> {obj.__str__()}"
 
     def _dump_tuple(self, obj: tuple, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         if self.pretty_print:
-            pstr = [f"{self._build_prefix_indent(indent)}<tuple @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
-            indent += 1
-            for index, value in enumerate(obj):
-                if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent=indent)}")
-                else:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items...")
-                    break
+            pstr = [f"{self._build_prefix_indent(indent, inline)}<tuple @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
+            if self.depth is not None and depth <= self.depth:
+                indent += 1
+                for index, value in enumerate(obj):
+                    if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent, depth + 1, True)}")
+                    else:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items...")
+                        break
             return "\n".join(pstr)
         return f"<tuple> {obj.__str__()}"
 
     def _dump_set(self, obj: set, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         if self.pretty_print:
-            pstr = [f"{self._build_prefix_indent(indent)}<set @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
-            indent += 1
-            for index, value in enumerate(obj):
-                if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent=indent)}")
-                else:
-                    pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items...")
-                    break
+            pstr = [f"{self._build_prefix_indent(indent, inline)}<set @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
+            if self.depth is not None and depth <= self.depth:
+                indent += 1
+                for index, value in enumerate(obj):
+                    if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[index] = {self._dump(value,  indent, depth + 1, True)}")
+                    else:
+                        pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items...")
+                        break
             return "\n".join(pstr)
         return f"<set> {obj.__str__()}"
 
@@ -184,72 +203,65 @@ class Dump(object):
 
     def _dump_type(self, t: type, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         module = t.__module__
+        pstr = []
+
         if module == "builtins" and not t.__flags__ & (1 << 9):
-            return f"<class '{t.__qualname__}'>"
-        return f"<class '{t.__module__}.{t.__qualname__}'>"
+            pstr.append(f"{self._build_prefix_indent(indent)}<class '{t.__qualname__}'>")
+        else:
+            pstr.append(f"{self._build_prefix_indent(indent)}<class '{t.__module__}.{t.__qualname__}'>")
+        indent += 1
+        dict_list = t.__dict__
+        for index, (attr, value) in enumerate(dict_list.items()):
+            if attr in self.MagicMethods:
+                continue
+            if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
+                pstr.append(f"{self._build_prefix_indent(indent)}{attr} = {self._dump(value, indent, depth + 1, True)}")
+            else:
+                pstr.append(f"{self._build_prefix_indent(indent)} [More {dict_list.__len__() - self.head_count} items...]")
+                break
+        return "\n".join(pstr)
+
 
     def _dump_object(self, obj: object, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        pstr = [f"{self._build_prefix_indent(indent)}<{get_obj_class_str(obj)} obj @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()}>"]
+        pstr = [f"{self._build_prefix_indent(indent, inline)}<{get_obj_class_str(obj)} obj @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()}>"]
         indent += 1
-        index = 0
-        members = tuple(obj.__dir__())
-        for member in members:
+        members = obj.__dir__()
+        for index, member in enumerate(members):
             if member in self.MagicMethods:
                 continue
             if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
-                index += 1
-                pstr.append(f"{self._build_prefix_indent(indent)}{member} = {self._dump(getattr(obj, member), indent=indent)}")
+                pstr.append(f"{self._build_prefix_indent(indent)}{member} = {self._dump(getattr(obj, member), indent, depth + 1, True)}")
             else:
                 pstr.append(f"{self._build_prefix_indent(indent)} [More {members.__len__() - self.head_count} items...]")
                 break
         return "\n".join(pstr)
 
-    def _dump(self, obj: object, indent: int) -> str:
-        if self.depth is not None and indent > self.depth:
-            return ""
-        print(f"DOING OBJ: {obj!r}")
+    def _dump(self, obj: object, indent: int, depth: int, inline: bool) -> str:
         if not self._check_obj_is_new(obj):
             if self.str_if_recur is Ellipsis:
                 return "..."
             elif isinstance(self.str_if_recur, str):
                 return self.str_if_recur
             else:
-                return f"{self._build_prefix_indent(indent)}<{obj.__class__.__name__} {get_ref_info(obj)}>"
+                return f"{self._build_prefix_indent(indent, inline)}<{obj.__class__.__name__} {get_ref_info(obj)}>"
         for mro_item in obj.__class__.__mro__:
             if self.handles.__contains__(mro_item):
-                return self.handles[mro_item](obj, indent)
+                return self.handles[mro_item](obj, indent, depth, inline)
         return f"{self._build_prefix_indent(indent)}<{get_obj_class_str(obj)} object @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()}>"
 
     def dump(self, obj: object, /, printer: Callable[..., None | int] = print, **kwargs) :
         indent = 0
         if "indent" in kwargs and isinstance(kwargs['indent'], int) and kwargs['indent'] >= 0:
             indent = kwargs['indent']
-        printer(self._dump(obj, indent))
+        printer(self._dump(obj, indent, 0, False))
 
 
 if __name__ == "__main__":
-    class B:
-        PROP1 = 1
-        PROP2 = 2
-        PROP3 = "a"
-
-        def __init__(self):
-            self.a = 1
-            self.b = 2
-
-        def func1(self):
-            ...
-
-        lam = lambda x: x + 1
-        type = Self.__class__
-
-        class E(list):
-            ...
-
-    b = B()
+    l = [*range(150)]
 
     d = Dump()
-    d.dump(b)
+    d.set_pretty_print(True)
+    d.dump(l)
 
 # Dump太费事了, 不想写了
 

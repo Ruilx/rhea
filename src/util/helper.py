@@ -93,4 +93,4 @@ def get_obj_class_str(obj: object):
     return f"{obj_class.__module__}.{obj_class.__qualname__}"
 
 def get_ref_info(obj: object) -> str:
-    return f"... Ref@{get_object_id(obj)}"
+    return f"... Ref@={get_object_id(obj)}"
