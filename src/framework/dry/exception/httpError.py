@@ -16,7 +16,7 @@ class HttpError(HTTPException):
             self.Msg = msg
         if code is not None:
             self.Code = code
-        super().__init__(self.__class__.StatusCode, self.Msg, headers if headers is not None else self.__class__.Headers)
+        super().__init__(self.StatusCode, self.Msg, headers if headers is not None else self.Headers)
 
     def __str__(self):
         return f"Sythen {self.__class__.__name__}({self.Code}): {self.Msg}"

@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import sys
 import types
-from typing import overload, Callable, TypeVar, Self, Optional, Literal
+from typing import Callable, TypeVar, Optional, Literal, Self, Iterator, Any
 
 from src.framework.dry.base.types import NumberType
 from util.helper import get_object_id, get_obj_class_str, get_ref_info, str_escape
 
+
+class DumpColor(object):
+    ...
 
 class Dump(object):
     T = TypeVar("T")
@@ -31,7 +34,7 @@ class Dump(object):
     SizeofStr = '__sizeof__'
 
     def __init__(self):
-        self.pretty_print = False
+        self.in_detail = False
 
         self.handles : dict[type, Callable[[object, int, int, bool], str]] = {
             dict: self._dump_dict,
@@ -68,9 +71,12 @@ class Dump(object):
         self.str_if_recur: Optional[str | Ellipsis] = None
 
         # 打印颜色(未实现)
-        # Escape： 使用"\e["字符来在xterm终端显示颜色。
+        # Plain: 原始字符串输出。
+        # TTYColor： 终端颜色输出，使用ANSI转义码。
         # HTML： 使用"<span class="...">...</span>"的方式来在网页上显示。
-        self.color: Optional[Literal["Escape", "HTML"]] = None
+        # JSON： 使用JSON格式输出，适合机器读取。
+        # XML： 使用XML格式输出，适合机器读取。
+        self.format: Literal["Plain", "TTYColor", "HTML", "JSON", "XML"] = "Plain"
 
     def _build_prefix_indent(self, indent: int, /, inline = False) -> str:
         if inline or indent <= 0:
@@ -90,13 +96,13 @@ class Dump(object):
             self.id_table[id(obj)] = obj
             return True
 
-    def set_pretty_print(self, pretty_print: bool):
+    def set_in_detail(self, in_detail: bool):
         """
         是否使用树形优美打印方案，将会单独处理dict、list等带有特殊str的描述的内容。
-        :param pretty_print: bool
+        :param in_detail: bool
         :return: None
         """
-        self.pretty_print = pretty_print
+        self.in_detail = in_detail
 
     def set_indent_length(self, indent_length: int):
         """
@@ -122,12 +128,12 @@ class Dump(object):
         """
         self.indent_gap = indent_gap
 
-    def register_handle(self, t: T, handle: Callable[[object, int], str]):
+    def register_handle(self, t: T, handle: Callable[[object, int, int, bool], str]):
         self.handles[t] = handle
 
 
     def _dump_dict(self, obj: dict, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        if self.pretty_print:
+        if self.in_detail:
             pstr = [f"{self._build_prefix_indent(indent, inline)}<dict @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
             if self.depth is not None and depth <= self.depth:
                 indent += 1
@@ -140,8 +146,13 @@ class Dump(object):
             return "\n".join(pstr)
         return f"<dict> {obj.__str__()}"
 
+    def _dump_dict2(self, obj: dict):
+        if self.in_detail:
+            node = Dump.Node()
+            node.title
+
     def _dump_list(self, obj: list, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        if self.pretty_print:
+        if self.in_detail:
             pstr = [f"{self._build_prefix_indent(indent, inline)}<list @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
             if self.depth is not None and depth <= self.depth:
                 indent += 1
@@ -155,7 +166,7 @@ class Dump(object):
         return f"<list> {obj.__str__()}"
 
     def _dump_tuple(self, obj: tuple, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        if self.pretty_print:
+        if self.in_detail:
             pstr = [f"{self._build_prefix_indent(indent, inline)}<tuple @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
             if self.depth is not None and depth <= self.depth:
                 indent += 1
@@ -169,7 +180,7 @@ class Dump(object):
         return f"<tuple> {obj.__str__()}"
 
     def _dump_set(self, obj: set, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        if self.pretty_print:
+        if self.in_detail:
             pstr = [f"{self._build_prefix_indent(indent, inline)}<set @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
             if self.depth is not None and depth <= self.depth:
                 indent += 1
@@ -206,9 +217,9 @@ class Dump(object):
         pstr = []
 
         if module == "builtins" and not t.__flags__ & (1 << 9):
-            pstr.append(f"{self._build_prefix_indent(indent)}<class '{t.__qualname__}'>")
+            pstr.append(f"{self._build_prefix_indent(indent, inline)}<class '{t.__qualname__}'>")
         else:
-            pstr.append(f"{self._build_prefix_indent(indent)}<class '{t.__module__}.{t.__qualname__}'>")
+            pstr.append(f"{self._build_prefix_indent(indent, inline)}<class '{t.__module__}.{t.__qualname__}'>")
         indent += 1
         dict_list = t.__dict__
         for index, (attr, value) in enumerate(dict_list.items()):
@@ -251,17 +262,37 @@ class Dump(object):
 
     def dump(self, obj: object, /, printer: Callable[..., None | int] = print, **kwargs) :
         indent = 0
+        self.id_table.clear()
         if "indent" in kwargs and isinstance(kwargs['indent'], int) and kwargs['indent'] >= 0:
             indent = kwargs['indent']
         printer(self._dump(obj, indent, 0, False))
 
 
 if __name__ == "__main__":
-    l = [*range(150)]
+    class A:
+        PROP1 = "abc"
+        PROP2 = [12,34,56]
+        PROP3 = {'a': 1, 'b': 2}
+
+        def __init__(self):
+            self.member1 = 1
+            self.member2 = 2 + 3j
+            self.member3 = "ABCDEFG"
+            self.member4 = object()
+            self.member5 = [5,6,7,8]
+            self.member6 = (5,6,7,8)
+            self.member7 = lambda x: x
+            self.member8 = type
+        class B:
+            class C:
+                PROP = "Hello, World!"
+        PROP = B()
 
     d = Dump()
-    d.set_pretty_print(True)
-    d.dump(l)
+    #d.set_in_detail(True)
+    d.dump(A)
+    print("===================")
+    d.dump(A())
 
 # Dump太费事了, 不想写了
 
