@@ -4,6 +4,7 @@ import types
 from typing import Callable, TypeVar, Optional, Literal, Self, Iterator, Any
 
 from src.framework.dry.base.types import NumberType
+from .node import Node
 from util.helper import get_object_id, get_obj_class_str, get_ref_info, str_escape
 
 
@@ -51,6 +52,19 @@ class Dump(object):
             BaseException: self._dump_base_exception,
             type: self._dump_type,
             object: self._dump_object,
+        }
+
+        self.attr_config = {
+            dict: {
+                '@': self._get_object_id(o),
+                '__len__': lambda o: o.__len__(),
+                '__sizeof__': lambda o: o.__sizeof__(),
+            },
+            list: {
+                '@': self._get_object_id,
+                '__len__': lambda o: o.__len__(),
+                '__sizeof__': lambda o: o.__sizeof__(),
+            }
         }
 
         self.id_table: dict[int, object] = {}
@@ -131,6 +145,14 @@ class Dump(object):
     def register_handle(self, t: T, handle: Callable[[object, int, int, bool], str]):
         self.handles[t] = handle
 
+    @staticmethod
+    def _get_object_id(obj: object, hex_format: bool = True) -> str:
+        return hex(id(obj)) if hex_format else str(id(obj))
+
+    @staticmethod
+    def _get_obj_class_str(obj: object):
+        obj_class = obj.__class__
+        return f"{obj_class.__module__}.{obj_class.__qualname__}"
 
     def _dump_dict(self, obj: dict, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         if self.in_detail:
@@ -146,10 +168,14 @@ class Dump(object):
             return "\n".join(pstr)
         return f"<dict> {obj.__str__()}"
 
-    def _dump_dict2(self, obj: dict):
+    def _dump_dict2(self, key: str, obj: dict):
+        node = Node()
+        node.set_key(key)
         if self.in_detail:
-            node = Dump.Node()
-            node.title
+            node.set_prop("type", "dict")
+
+
+
 
     def _dump_list(self, obj: list, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
         if self.in_detail:
@@ -228,7 +254,7 @@ class Dump(object):
             if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
                 pstr.append(f"{self._build_prefix_indent(indent)}{attr} = {self._dump(value, indent, depth + 1, True)}")
             else:
-                pstr.append(f"{self._build_prefix_indent(indent)} [More {dict_list.__len__() - self.head_count} items...]")
+                pstr.append(f"{self._build_prefix_indent(indent)}[More {dict_list.__len__() - self.head_count} items...]")
                 break
         return "\n".join(pstr)
 
@@ -243,7 +269,7 @@ class Dump(object):
             if isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index:
                 pstr.append(f"{self._build_prefix_indent(indent)}{member} = {self._dump(getattr(obj, member), indent, depth + 1, True)}")
             else:
-                pstr.append(f"{self._build_prefix_indent(indent)} [More {members.__len__() - self.head_count} items...]")
+                pstr.append(f"{self._build_prefix_indent(indent)}[More {members.__len__() - self.head_count} items...]")
                 break
         return "\n".join(pstr)
 
@@ -283,13 +309,15 @@ if __name__ == "__main__":
             self.member6 = (5,6,7,8)
             self.member7 = lambda x: x
             self.member8 = type
+            self.member9 = list(range(100))
         class B:
             class C:
                 PROP = "Hello, World!"
         PROP = B()
 
     d = Dump()
-    #d.set_in_detail(True)
+    d.set_in_detail(True)
+    d.head_count = 10
     d.dump(A)
     print("===================")
     d.dump(A())

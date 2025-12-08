@@ -1,61 +1,73 @@
 # -*- coding: utf-8 -*-
-import enum
-from typing import Any, Self, Iterator
-
-from black.nodes import NodeType
-
-from .formatter.base_formatter import Formatter
-
+from typing import Any, Self, Literal, Optional
 
 '''
-<__main__.A obj  @=0x1b547355730 __sizeof__=16>
-|TITLE     |TYPE| ATTR1         |ATTR2        |
+ member3 = <{TITLE} str  @=0x1b547c09a70 __sizeof__=48 __len__=7> ABCDEFG
+| KEY   |S| PROPS                                                | VALUE
+          | TITLE  |TYPE| ATTR1         | ATTR2       | ATTR3    | 
 
- member3 = <str   @=0x1b547c09a70 __sizeof__=48 __len__=7> ABCDEFG
-|KEY    |  |TITLE| ATTR1         | ATTR2       | ATTR3    | TEXT
 '''
 
 class Node(object):
+    PropKeys = Literal["title", "type", "attributes"]
 
-    class NodeType(enum.Enum):
-        NodeType_Root = enum.auto()
-        NodeType_Value = enum.auto()
-
-    def __init__(self, title: str):
-        self.title = ""
+    def __init__(self):
         self.key = ""
-        self.type: NodeType = NodeType.NodeType_Root
+        self.props = {
+            "title": "",
+            "type": "",
+        }
         self.attrs: dict[str, Any] = {}
-        self.text = ""
-        self.children: list[Node] = []
-        self.set_title(title)
+        self.value: Any = None
+        self.children: list[Self] = []
+        self.parent: Optional[Self] = None
 
-    def set_title(self, title: str) -> Self:
-        self.title = title
-        return self
-
-    def get_title(self):
-        return self.title
-
-    def set_key(self, key: str) -> Self:
+    def set_key(self, key: str):
         self.key = key
-        return self
 
     def get_key(self):
         return self.key
 
-    def set_attr(self, key: str, value: Any) -> Self:
-        self.attrs[key] = value
-        return self
+    def get_prop_keys(self):
+        return self.props.keys()
+
+    def get_props(self):
+        return self.props
+
+    def set_prop(self, name: "PropKeys", value: Any):
+        self.props[name] = value
+
+    def get_prop(self, name: "PropKeys"):
+        return self.props[name] if name in self.props else None
+
+    def set_attr(self, name: str, value: Any):
+        self.attrs[name] = value
+
+    def get_attr(self, name: str):
+        return self.attrs[name] if name in self.attrs else None
 
     def get_attrs(self):
         return self.attrs
 
-    def append(self, node: Self):
-        self.children.append(node)
+    def set_value(self, value: Any):
+        self.value = value
 
-    def iter(self) -> Iterator[Self]:
+    def get_value(self):
+        return self.value
+
+    def append_node(self, node: Self):
+        if node is self or (node is self.parent if self.parent else False):
+            raise RuntimeError("Cannot append node itself or it's parent.")
+        self.children.append(node)
+        node.set_parent(self)
+
+    def iter_children(self):
         return iter(self.children)
 
-    def render(self, formatter: "Formatter"):
-        ...
+    def set_parent(self, parent: Self):
+        if parent.get_parent() is self or self.children.__contains__(parent):
+            raise RuntimeError("Cannot set it's child to it's parent.")
+        self.parent = parent
+
+    def get_parent(self):
+        return self.parent
