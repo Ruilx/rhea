@@ -8,6 +8,7 @@ from typing import Any, Self, Literal, Optional
 
 '''
 
+
 class Node(object):
     PropKeys = Literal["title", "type", "attributes"]
 
@@ -42,6 +43,9 @@ class Node(object):
 
     def set_attr(self, name: str, value: Any):
         self.attrs[name] = value
+
+    def set_attrs(self, attrs: dict[str, Any]):
+        self.attrs = attrs
 
     def get_attr(self, name: str):
         return self.attrs[name] if name in self.attrs else None

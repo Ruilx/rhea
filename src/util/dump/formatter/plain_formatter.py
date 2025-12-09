@@ -69,10 +69,14 @@ class PlainFormatter(Formatter):
         if key:
             s.append(key)
             s.append(self.kv_sep)
-        s.append(f"<{props}")
-        if attrs:
-            s.append(f" {attrs}")
-        s.append(">")
+        if props:
+            s.append(f"<{props}")
+            if attrs:
+                s.append(f" {attrs}")
+            s.append(">")
         if value:
             s.append(f" {value}")
         printer("".join(s))
+
+    def _arrange(self, s: list[str]):
+        return "\n".join(s)
