@@ -64,7 +64,7 @@ class Formatter(metaclass=abc.ABCMeta):
         self._format_header(key, props, attrs, value, indent, self._printer(s))
         if node.children.__len__() > 0:
             for child_node in node.iter_children():
-                self._format_node(child_node, indent + 1)
+                yield from self._format_node(child_node, indent + 1)
         self._post_node(node, self._printer(s))
         yield self._arrange(s)
 

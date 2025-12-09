@@ -6,3 +6,5 @@ SerializableType = Union[str, bool, int, float, complex, dict[str, ...], list[..
 StructType = Union[SerializableType, set[...]]
 
 NumberType = Union[int, float, complex]
+
+ContainerType = Union[list, tuple, set]

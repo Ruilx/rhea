@@ -2,12 +2,13 @@
 import sys
 import types
 from itertools import islice
-from typing import Callable, TypeVar, Optional, Literal, Self, Iterator, Any
+from typing import Callable, TypeVar, Optional, Literal
 
 from fastapi.dependencies.utils import check_file_field
 
-from src.framework.dry.base.types import NumberType
-from .node import Node
+from src.framework.dry.base.types import NumberType, ContainerType
+from util.dump.formatter.plain_formatter import PlainFormatter
+from util.dump.node import Node
 from util.helper import get_object_id, get_obj_class_str, get_ref_info, str_escape
 
 
@@ -40,28 +41,28 @@ class Dump(object):
     def __init__(self):
         self.in_detail = False
 
-        self.handles: dict[type, Callable[[object, int, int, bool], str]] = {
-            dict: self._dump_dict,
-            list: self._dump_list,
-            tuple: self._dump_tuple,
-            set: self._dump_set,
-            str: self._dump_str,
-            bool: self._dump_bool,
-            int: self._dump_number,
-            float: self._dump_number,
-            complex: self._dump_number,
-            None: self._dump_none,
-            Ellipsis: self._dump_ellipsis,
-            BaseException: self._dump_base_exception,
-            type: self._dump_type,
-            object: self._dump_object,
-        }
+        # self.handles: dict[type, Callable[[object, int, int, bool], str]] = {
+        #     dict: self._dump_dict,
+        #     list: self._dump_list,
+        #     tuple: self._dump_tuple,
+        #     set: self._dump_set,
+        #     str: self._dump_str,
+        #     bool: self._dump_bool,
+        #     int: self._dump_number,
+        #     float: self._dump_number,
+        #     complex: self._dump_number,
+        #     None: self._dump_none,
+        #     Ellipsis: self._dump_ellipsis,
+        #     BaseException: self._dump_base_exception,
+        #     type: self._dump_type,
+        #     object: self._dump_object,
+        # }
 
         self.handles2: dict[type, Callable[[Node, object, int], Node]] = {
             dict: self._dump_dict2,
-            list: self._dump_list2,
-            tuple: self._dump_tuple2,
-            set: self._dump_set2,
+            list: self._dump_container,
+            tuple: self._dump_container,
+            set: self._dump_container,
             str: self._dump_str2,
             bool: self._dump_bool2,
             int: self._dump_number2,
@@ -76,7 +77,7 @@ class Dump(object):
 
         self.attr_config = {
             dict: {
-                "@": self._get_object_id(o),
+                "@": self._get_object_id,
                 "__len__": lambda o: o.__len__(),
                 "__sizeof__": lambda o: o.__sizeof__(),
             },
@@ -153,6 +154,7 @@ class Dump(object):
         # JSON： 使用JSON格式输出，适合机器读取。
         # XML： 使用XML格式输出，适合机器读取。
         self.format: Literal["Plain", "TTYColor", "HTML", "JSON", "XML"] = "Plain"
+        self.formatter = PlainFormatter
 
     def _build_prefix_indent(self, indent: int, /, inline=False) -> str:
         if inline or indent <= 0:
@@ -225,21 +227,21 @@ class Dump(object):
         obj_class = obj.__class__
         return f"{obj_class.__module__}.{obj_class.__qualname__}"
 
-    def _dump_dict(self, obj: dict, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        if self.in_detail:
-            pstr = [
-                f"{self._build_prefix_indent(indent, inline)}<dict @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"
-            ]
-            if self.depth is not None and depth <= self.depth:
-                indent += 1
-                for index, (key, value) in enumerate(obj.items()):
-                    if (isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index):
-                        pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self._dump(value, indent, depth + 1, True)}")
-                    else:
-                        pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
-                        break
-            return "\n".join(pstr)
-        return f"<dict> {obj.__str__()}"
+    # def _dump_dict(self, obj: dict, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     if self.in_detail:
+    #         pstr = [
+    #             f"{self._build_prefix_indent(indent, inline)}<dict @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"
+    #         ]
+    #         if self.depth is not None and depth <= self.depth:
+    #             indent += 1
+    #             for index, (key, value) in enumerate(obj.items()):
+    #                 if (isinstance(self.head_count, int) and self.head_count > 0 and self.head_count > index):
+    #                     pstr.append(f"{self._build_prefix_indent(indent)}[{key}] = {self._dump(value, indent, depth + 1, True)}")
+    #                 else:
+    #                     pstr.append(f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]")
+    #                     break
+    #         return "\n".join(pstr)
+    #     return f"<dict> {obj.__str__()}"
 
     def _dump_dict2(self, node: Node, obj: dict, depth: int = 0):
         rest_len = obj.__len__() - self.head_count
@@ -262,33 +264,55 @@ class Dump(object):
             node.set_value(f"{dict(islice(obj.items(), self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
         return node
 
-    def _dump_list(self, obj: list, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
-        if self.in_detail:
-            pstr = [f"{self._build_prefix_indent(indent, inline)}<list @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
-            if self.depth is not None and depth <= self.depth:
-                indent += 1
-                for index, value in enumerate(obj):
-                    if (
-                            isinstance(self.head_count, int)
-                            and self.head_count > 0
-                            and self.head_count > index
-                    ):
-                        pstr.append(
-                            f"{self._build_prefix_indent(indent)}[{index}] = {self._dump(value, indent, depth + 1, True)}"
-                        )
-                    else:
-                        pstr.append(
-                            f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]"
-                        )
-                        break
-            return "\n".join(pstr)
-        return f"<list> {obj.__str__()}"
+    # def _dump_list(self, obj: list, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     if self.in_detail:
+    #         pstr = [f"{self._build_prefix_indent(indent, inline)}<list @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"]
+    #         if self.depth is not None and depth <= self.depth:
+    #             indent += 1
+    #             for index, value in enumerate(obj):
+    #                 if (
+    #                         isinstance(self.head_count, int)
+    #                         and self.head_count > 0
+    #                         and self.head_count > index
+    #                 ):
+    #                     pstr.append(
+    #                         f"{self._build_prefix_indent(indent)}[{index}] = {self._dump(value, indent, depth + 1, True)}"
+    #                     )
+    #                 else:
+    #                     pstr.append(
+    #                         f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count} items...]"
+    #                     )
+    #                     break
+    #         return "\n".join(pstr)
+    #     return f"<list> {obj.__str__()}"
 
-    def _dump_list2(self, node: Node, obj: list, depth: int = 0) -> Node:
+    # def _dump_list2(self, node: Node, obj: list, depth: int = 0) -> Node:
+    #     rest_len = obj.__len__() - self.head_count
+    #     node.set_prop("type", "list")
+    #     if self.in_detail:
+    #         node.set_attrs(self._get_attrs(list, obj))
+    #         if self.depth is not None and depth <= self.depth:
+    #             for index, value in enumerate(obj):
+    #                 if self._check_head_count(index):
+    #                     child_node = Node()
+    #                     child_node.set_key(f"[{index}]")
+    #                     self._dump2(child_node, value, depth + 1)
+    #                     node.append_node(child_node)
+    #                 else:
+    #                     more_node = Node()
+    #                     more_node.set_prop("type", f"More {rest_len} items...")
+    #                     node.append_node(more_node)
+    #                     break
+    #     else:
+    #         node.set_value(f"{list(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
+    #     return node
+
+    def _dump_container(self, node: Node, obj: ContainerType, depth: int = 0):
         rest_len = obj.__len__() - self.head_count
-        node.set_prop("type", "list")
+        t = obj.__class__
+        node.set_prop("type", t.__name__)
         if self.in_detail:
-            node.set_attrs(self._get_attrs(list, obj))
+            node.set_attrs(self._get_attrs(t, obj))
             if self.depth is not None and depth <= self.depth:
                 for index, value in enumerate(obj):
                     if self._check_head_count(index):
@@ -302,108 +326,103 @@ class Dump(object):
                         node.append_node(more_node)
                         break
         else:
-            node.set_value(f"{list(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
+            node.set_value(
+                f"{obj.__class__(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
         return node
 
-    def _dump_tuple(
-            self, obj: tuple, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        if self.in_detail:
-            pstr = [
-                f"{self._build_prefix_indent(indent, inline)}<tuple @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"
-            ]
-            if self.depth is not None and depth <= self.depth:
-                indent += 1
-                for index, value in enumerate(obj):
-                    if (
-                            isinstance(self.head_count, int)
-                            and self.head_count > 0
-                            and self.head_count > index
-                    ):
-                        pstr.append(
-                            f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent, depth + 1, True)}"
-                        )
-                    else:
-                        pstr.append(
-                            f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items..."
-                        )
-                        break
-            return "\n".join(pstr)
-        return f"<tuple> {obj.__str__()}"
+    # def _dump_tuple(self, obj: tuple, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     if self.in_detail:
+    #         pstr = [
+    #             f"{self._build_prefix_indent(indent, inline)}<tuple @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"
+    #         ]
+    #         if self.depth is not None and depth <= self.depth:
+    #             indent += 1
+    #             for index, value in enumerate(obj):
+    #                 if (
+    #                         isinstance(self.head_count, int)
+    #                         and self.head_count > 0
+    #                         and self.head_count > index
+    #                 ):
+    #                     pstr.append(
+    #                         f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent, depth + 1, True)}"
+    #                     )
+    #                 else:
+    #                     pstr.append(
+    #                         f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items..."
+    #                     )
+    #                     break
+    #         return "\n".join(pstr)
+    #     return f"<tuple> {obj.__str__()}"
 
-    def _dump_tuple2(self, node: Node, obj: list, depth: int = 0) -> Node:
-        rest_len = obj.__len__() - self.head_count
-        node.set_prop("type", "tuple")
-        if self.in_detail:
-            node.set_attrs(self._get_attrs(tuple, obj))
-            if self.depth is not None and depth <= self.depth:
-                for index, value in enumerate(obj):
-                    if self._check_head_count(index):
-                        child_node = Node()
-                        child_node.set_key(f"[{index}]")
-                        self._dump2(child_node, value, depth + 1)
-                        node.append_node(child_node)
-                    else:
-                        more_node = Node()
-                        more_node.set_prop("type", f"More {rest_len} items...")
-                        node.append_node(more_node)
-                        break
-        else:
-            node.set_value(f"{tuple(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
-        return node
+    # def _dump_tuple2(self, node: Node, obj: list, depth: int = 0) -> Node:
+    #     rest_len = obj.__len__() - self.head_count
+    #     node.set_prop("type", "tuple")
+    #     if self.in_detail:
+    #         node.set_attrs(self._get_attrs(tuple, obj))
+    #         if self.depth is not None and depth <= self.depth:
+    #             for index, value in enumerate(obj):
+    #                 if self._check_head_count(index):
+    #                     child_node = Node()
+    #                     child_node.set_key(f"[{index}]")
+    #                     self._dump2(child_node, value, depth + 1)
+    #                     node.append_node(child_node)
+    #                 else:
+    #                     more_node = Node()
+    #                     more_node.set_prop("type", f"More {rest_len} items...")
+    #                     node.append_node(more_node)
+    #                     break
+    #     else:
+    #         node.set_value(f"{tuple(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
+    #     return node
 
-    def _dump_set(
-            self, obj: set, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        if self.in_detail:
-            pstr = [
-                f"{self._build_prefix_indent(indent, inline)}<set @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"
-            ]
-            if self.depth is not None and depth <= self.depth:
-                indent += 1
-                for index, value in enumerate(obj):
-                    if (
-                            isinstance(self.head_count, int)
-                            and self.head_count > 0
-                            and self.head_count > index
-                    ):
-                        pstr.append(
-                            f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent, depth + 1, True)}"
-                        )
-                    else:
-                        pstr.append(
-                            f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items..."
-                        )
-                        break
-            return "\n".join(pstr)
-        return f"<set> {obj.__str__()}"
+    # def _dump_set(self, obj: set, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     if self.in_detail:
+    #         pstr = [
+    #             f"{self._build_prefix_indent(indent, inline)}<set @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}>"
+    #         ]
+    #         if self.depth is not None and depth <= self.depth:
+    #             indent += 1
+    #             for index, value in enumerate(obj):
+    #                 if (
+    #                         isinstance(self.head_count, int)
+    #                         and self.head_count > 0
+    #                         and self.head_count > index
+    #                 ):
+    #                     pstr.append(
+    #                         f"{self._build_prefix_indent(indent)}[index] = {self._dump(value, indent, depth + 1, True)}"
+    #                     )
+    #                 else:
+    #                     pstr.append(
+    #                         f"{self._build_prefix_indent(indent)}[More {obj.__len__() - self.head_count}] items..."
+    #                     )
+    #                     break
+    #         return "\n".join(pstr)
+    #     return f"<set> {obj.__str__()}"
 
-    def _dump_set2(self, node: Node, obj: set, depth: int = 0) -> Node:
-        rest_len = obj.__len__() - self.head_count
-        node.set_prop("type", "set")
-        if self.in_detail:
-            node.set_attrs(self._get_attrs(set, obj))
-            if self.depth is not None and depth <= self.depth:
-                for index, value in enumerate(obj):
-                    if self._check_head_count(index):
-                        child_node = Node()
-                        child_node.set_key(f"[{index}]")
-                        self._dump2(child_node, value, depth + 1)
-                        node.append_node(child_node)
-                    else:
-                        more_node = Node()
-                        more_node.set_prop("type", f"More {rest_len} items...")
-                        node.append_node(more_node)
-                        break
-        else:
-            node.set_value(f"{set(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
-        return node
+    # def _dump_set2(self, node: Node, obj: set, depth: int = 0) -> Node:
+    #     rest_len = obj.__len__() - self.head_count
+    #     node.set_prop("type", "set")
+    #     if self.in_detail:
+    #         node.set_attrs(self._get_attrs(set, obj))
+    #         if self.depth is not None and depth <= self.depth:
+    #             for index, value in enumerate(obj):
+    #                 if self._check_head_count(index):
+    #                     child_node = Node()
+    #                     child_node.set_key(f"[{index}]")
+    #                     self._dump2(child_node, value, depth + 1)
+    #                     node.append_node(child_node)
+    #                 else:
+    #                     more_node = Node()
+    #                     more_node.set_prop("type", f"More {rest_len} items...")
+    #                     node.append_node(more_node)
+    #                     break
+    #     else:
+    #         node.set_value(f"{set(islice(obj, self.head_count))!s}{f' and more {rest_len} items...' if rest_len > 0 else ''}")
+    #     return node
 
-    def _dump_str(
-            self, obj: str, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        # str.encode().decode() maybe leak some performance
-        return f"<str @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}> {str_escape(obj)}"
+    # def _dump_str(self, obj: str, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     # str.encode().decode() maybe leak some performance
+    #     return f"<str @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()} {self.LenStr}={obj.__len__()}> {str_escape(obj)}"
 
     def _dump_str2(self, node: Node, obj: str, depth: int = 0):
         rest_chars = obj.__len__() - self.head_count
@@ -412,79 +431,101 @@ class Dump(object):
         node.set_value(f"{''.join(islice(obj, self.head_count))}{f' ...(more {rest_chars} chars)' if rest_chars > 0 else ''}")
         return node
 
-    def _dump_bool(
-            self, obj: bool, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        return f"<bool> {obj.__str__()}"
+    # def _dump_bool(self, obj: bool, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     return f"<bool> {obj.__str__()}"
 
     def _dump_bool2(self, node: Node, obj: str, depth: int = 0):
         node.set_prop("type", "bool")
         node.set_attrs(self._get_attrs(bool, obj))
         node.set_value(obj.__str__())
+        return node
 
-    def _dump_number(
-            self, obj: NumberType, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        return f"<{obj.__class__.__name__} {self.SizeofStr}={obj.__sizeof__()}> {obj.__str__()}"
+    # def _dump_number(self, obj: NumberType, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     return f"<{obj.__class__.__name__} {self.SizeofStr}={obj.__sizeof__()}> {obj.__str__()}"
 
-    def _dump_number(self, node: Node, obj: NumberType, depth: int = 0):
+    def _dump_number2(self, node: Node, obj: NumberType, depth: int = 0):
         t = obj.__class__
         node.set_prop("type", t.__name__)
         node.set_attrs(self._get_attrs(t, obj))
-        ...
+        node.set_value(obj.__str__())
+        return node
 
-    def _dump_none(
-            self, obj: None, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        return "<None>"
+    # def _dump_none(self, obj: None, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     return "<None>"
 
-    def _dump_ellipsis(
-            self,
-            obj: types.EllipsisType,
-            indent: int = 0,
-            depth: int = 0,
-            inline: bool = False,
-    ) -> str:
-        return "..."
+    def _dump_none2(self, node: Node, obj: None, depth: int = 0):
+        node.set_value("None")
+        return node
 
-    def _dump_base_exception(
-            self, obj: BaseException, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
-        return f"<{get_obj_class_str(obj)} @={get_object_id(obj)} msg={str_escape(obj.__str__())}>"
+    # def _dump_ellipsis(self,obj: types.EllipsisType,indent: int = 0, depth: int = 0, inline: bool = False,) -> str:
+    #     return "..."
 
-    def _dump_type(
-            self, t: type, indent: int = 0, depth: int = 0, inline: bool = False
-    ) -> str:
+    def _dump_ellipsis2(self, node: Node, obj: types.EllipsisType, depth: int = 0):
+        node.set_value("...")
+        return node
+
+    # def _dump_base_exception(self, obj: BaseException, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     return f"<{get_obj_class_str(obj)} @={get_object_id(obj)} msg={str_escape(obj.__str__())}>"
+
+    def _dump_base_exception2(self, node: Node, obj: BaseException, depth: int = 0):
+        node.set_prop("type", self._get_obj_class_str(obj))
+        node.set_attr("msg", str_escape(obj.__str__()))
+        return node
+
+    # def _dump_type(self, t: type, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
+    #     module = t.__module__
+    #     pstr = []
+    #
+    #     if module == "builtins" and not t.__flags__ & (1 << 9):
+    #         pstr.append(
+    #             f"{self._build_prefix_indent(indent, inline)}<class '{t.__qualname__}'>"
+    #         )
+    #     else:
+    #         pstr.append(
+    #             f"{self._build_prefix_indent(indent, inline)}<class '{t.__module__}.{t.__qualname__}'>"
+    #         )
+    #     indent += 1
+    #     dict_list = t.__dict__
+    #     for index, (attr, value) in enumerate(dict_list.items()):
+    #         if attr in self.MagicMethods:
+    #             continue
+    #         if (
+    #                 isinstance(self.head_count, int)
+    #                 and self.head_count > 0
+    #                 and self.head_count > index
+    #         ):
+    #             pstr.append(
+    #                 f"{self._build_prefix_indent(indent)}{attr} = {self._dump(value, indent, depth + 1, True)}"
+    #             )
+    #         else:
+    #             pstr.append(
+    #                 f"{self._build_prefix_indent(indent)}[More {dict_list.__len__() - self.head_count} items...]"
+    #             )
+    #             break
+    #     return "\n".join(pstr)
+
+    def _dump_type2(self, node: Node, t: type, depth: int = 0):
         module = t.__module__
-        pstr = []
-
+        node.set_prop("title", "class")
         if module == "builtins" and not t.__flags__ & (1 << 9):
-            pstr.append(
-                f"{self._build_prefix_indent(indent, inline)}<class '{t.__qualname__}'>"
-            )
+            node.set_prop("type", f"'{t.__qualname__}'")
         else:
-            pstr.append(
-                f"{self._build_prefix_indent(indent, inline)}<class '{t.__module__}.{t.__qualname__}'>"
-            )
-        indent += 1
+            node.set_prop("type", f"'{module}.{t.__qualname__}'")
         dict_list = t.__dict__
         for index, (attr, value) in enumerate(dict_list.items()):
             if attr in self.MagicMethods:
                 continue
-            if (
-                    isinstance(self.head_count, int)
-                    and self.head_count > 0
-                    and self.head_count > index
-            ):
-                pstr.append(
-                    f"{self._build_prefix_indent(indent)}{attr} = {self._dump(value, indent, depth + 1, True)}"
-                )
+            if self._check_head_count(index):
+                child_node = Node()
+                child_node.set_key(attr)
+                self._dump2(child_node, value, depth + 1)
+                node.append_node(child_node)
             else:
-                pstr.append(
-                    f"{self._build_prefix_indent(indent)}[More {dict_list.__len__() - self.head_count} items...]"
-                )
+                more_node = Node()
+                more_node.set_prop("type", f"More {dict_list.__len__() - self.head_count} items...")
+                node.append_node(more_node)
                 break
-        return "\n".join(pstr)
+        return node
 
     def _dump_object(
             self, obj: object, indent: int = 0, depth: int = 0, inline: bool = False
@@ -512,18 +553,38 @@ class Dump(object):
                 break
         return "\n".join(pstr)
 
-    def _dump(self, obj: object, indent: int, depth: int, inline: bool) -> str:
-        if not self._check_obj_is_new(obj):
-            if self.str_if_recur is Ellipsis:
-                return "..."
-            elif isinstance(self.str_if_recur, str):
-                return self.str_if_recur
+    def _dump_object2(self, node: Node, obj: object, depth: int = 0):
+        node.set_prop("title", self._get_obj_class_str(obj))
+        node.set_prop("type", "obj")
+        node.set_attrs(self._get_attrs(object, obj))
+        members = obj.__dir__()
+        for index, member in enumerate(members):
+            if member in self.MagicMethods:
+                continue
+            if self._check_head_count(index):
+                child_node = Node()
+                child_node.set_key(member)
+                self._dump2(child_node, member, depth + 1)
+                node.append_node(child_node)
             else:
-                return f"{self._build_prefix_indent(indent, inline)}<{obj.__class__.__name__} {get_ref_info(obj)}>"
-        for mro_item in obj.__class__.__mro__:
-            if self.handles.__contains__(mro_item):
-                return self.handles[mro_item](obj, indent, depth, inline)
-        return f"{self._build_prefix_indent(indent)}<{get_obj_class_str(obj)} object @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()}>"
+                more_node = Node()
+                more_node.set_prop("type", f"More {members.__len__() - self.head_count} items...")
+                node.append_node(more_node)
+                break
+        return node
+
+    # def _dump(self, obj: object, indent: int, depth: int, inline: bool) -> str:
+    #     if not self._check_obj_is_new(obj):
+    #         if self.str_if_recur is Ellipsis:
+    #             return "..."
+    #         elif isinstance(self.str_if_recur, str):
+    #             return self.str_if_recur
+    #         else:
+    #             return f"{self._build_prefix_indent(indent, inline)}<{obj.__class__.__name__} {get_ref_info(obj)}>"
+    #     for mro_item in obj.__class__.__mro__:
+    #         if self.handles.__contains__(mro_item):
+    #             return self.handles[mro_item](obj, indent, depth, inline)
+    #     return f"{self._build_prefix_indent(indent)}<{get_obj_class_str(obj)} object @={get_object_id(obj)} {self.SizeofStr}={obj.__sizeof__()}>"
 
     def _dump2(self, node: Node, obj: object, depth: int) -> Node:
         if not self._check_obj_is_new(obj):
@@ -535,26 +596,19 @@ class Dump(object):
                 node.set_prop("type", obj.__class__.__name__)
                 node.set_attr("Ref@", self._get_object_id(obj))
         for mro_item in obj.__class__.__mro__:
-            if self.handles.__contains__(mro_item):
+            if self.handles2.__contains__(mro_item):
                 self.handles2[mro_item](node, obj, depth)
-            else:
-                node.set_prop("title", self._get_obj_class_str(obj))
-                node.set_prop("type", "object")
-                node.set_attrs(self._get_attrs(object, obj))
+                break
+        else:
+            node.set_prop("title", self._get_obj_class_str(obj))
+            node.set_prop("type", "object")
+            node.set_attrs(self._get_attrs(object, obj))
         return node
 
-    def dump(
-            self, obj: object, /, printer: Callable[..., None | int] = print, **kwargs
-    ):
-        indent = 0
+    def dump(self, obj: object) -> Node:
         self.id_table.clear()
-        if (
-                "indent" in kwargs
-                and isinstance(kwargs["indent"], int)
-                and kwargs["indent"] >= 0
-        ):
-            indent = kwargs["indent"]
-        printer(self._dump(obj, indent, 0, False))
+        root_node = Node()
+        return self._dump2(root_node, obj, 0)
 
 
 if __name__ == "__main__":
@@ -584,9 +638,10 @@ if __name__ == "__main__":
     d = Dump()
     d.set_in_detail(True)
     d.head_count = 10
-    d.dump(A)
-    print("===================")
-    d.dump(A())
+    pf = PlainFormatter()
+    for l in pf.render(d.dump(A)):
+        print(l)
+
 
 # Dump太费事了, 不想写了
 
