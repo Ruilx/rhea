@@ -33,17 +33,12 @@ class Formatter(metaclass=abc.ABCMeta):
     def _format_header(self, key: str, props: str, attrs: str, value: str, indent: int, context: dict[str, Any]):
         raise NotImplementedError
 
-    # @abc.abstractmethod
-    # def _arrange(self, s: list[str]):
-    #     raise NotImplementedError
-
     def _pre_node(self, node: Node, context: dict[str, Any]):
         ...
 
     def _post_node(self, node: Node, context: dict[str, Any]):
         ...
 
-    @classmethod
     def _pre_render(self, node: Node, context: dict[str, Any]) -> Optional[Any]:
         return None
 

@@ -9,9 +9,6 @@ from util.dump.node import Node
 from util.helper import str_escape
 
 
-class DumpColor(object): ...
-
-
 class Dump(object):
     MagicMethods = {
         *(object().__dir__()),

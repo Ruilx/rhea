@@ -108,8 +108,13 @@ class ColorTTY(object):
             parts.append(8)
         return f"{ColorTTY.EscapeChar}[{';'.join(map(lambda x: str(x), parts))}m{string}{ColorTTY.EscapeChar}{ColorTTY.Reset}"
 
+    def __str__(self):
+        return self.make(self.s)
+
+
 def colortty(s: Optional[str] = None):
     return ColorTTY(s).statement()
+
 
 class _Color(object):
     ColorTarget = ColorTTY.Mode.Color
@@ -119,37 +124,44 @@ class _Color(object):
         def _(color_obj: ColorTTY):
             color_obj.set_attr(self.ColorTarget, 0)
             color_obj.set_attr(self.LighterTarget, int(lighter))
+
         return _
 
     def red(self, lighter: bool = False):
         def _(color_obj: ColorTTY):
             color_obj.set_attr(self.ColorTarget, 1)
             color_obj.set_attr(self.LighterTarget, int(lighter))
+
         return _
 
     def green(self, lighter: bool = False):
         def _(color_obj: ColorTTY):
             color_obj.set_attr(self.ColorTarget, 2)
             color_obj.set_attr(self.LighterTarget, int(lighter))
+
         return _
 
     def yellow(self, lighter: bool = False):
         def _(color_obj: ColorTTY):
             color_obj.set_attr(self.ColorTarget, 3)
             color_obj.set_attr(self.LighterTarget, int(lighter))
-        return _
 
+        return _
 
     def blue(self, lighter: bool = False):
         def _(color_obj: ColorTTY):
             color_obj.set_attr(self.ColorTarget, 4)
             color_obj.set_attr(self.LighterTarget, int(lighter))
+
         return _
 
+
 ColorTTY.Color = _Color()
+
 
 class _BackgroundColor(_Color):
     ColorTarget = ColorTTY.Mode.BackgroundColor
     LighterTarget = ColorTTY.Mode.BackgroundLighter
+
 
 ColorTTY.BackgroundColor = _BackgroundColor()
