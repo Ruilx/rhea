@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Callable
+from typing import Callable, Any
 
 from .base_formatter import Formatter
 from ..node import Node
@@ -38,7 +38,9 @@ class PlainFormatter(Formatter):
         self.kv_sep = " = "
 
     def _build_prefix_indent(self, indent: int) -> str:
-        if indent == 1:
+        if indent == 0:
+            return ""
+        elif indent == 1:
             return self.indent_tree
         else:
             return f"{self.indent_prefix * (indent - 1)}{self.indent_tree}"
@@ -64,7 +66,7 @@ class PlainFormatter(Formatter):
     def _format_value(self, node: Node):
         return node.get_value()
 
-    def _format_header(self, key: str, props: str, attrs: str, value: str, indent: int, printer: Callable[[str], None]):
+    def _format_header(self, key: str, props: str, attrs: str, value: str, indent: int, context: dict[str, Any]):
         s = [self._build_prefix_indent(indent)]
         if key:
             s.append(key)
@@ -76,7 +78,4 @@ class PlainFormatter(Formatter):
             s.append(">")
         if value:
             s.append(f" {value}")
-        printer("".join(s))
-
-    def _arrange(self, s: list[str]):
-        return "\n".join(s)
+        return "".join(s)

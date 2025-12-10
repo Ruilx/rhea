@@ -33,6 +33,12 @@ class Dump(object):
         "__getitem__",
         "__getattr__",
         "__slots__",
+        "__len__",
+        "__contains__",
+        "__reserved__",
+        "__reversed__",
+        "__bool__",
+        "__iter__",
     }
 
     LenStr = "__len__"
@@ -223,9 +229,16 @@ class Dump(object):
         return hex(id(obj)) if hex_format else str(id(obj))
 
     @staticmethod
+    def _get_type_module_str(t: type):
+        t_module = t.__module__
+        if t_module == "builtins" and not t.__flags__ & (1 << 9):
+            return t.__qualname__
+        return f"{t_module}.{t.__qualname__}"
+
+    @staticmethod
     def _get_obj_class_str(obj: object):
         obj_class = obj.__class__
-        return f"{obj_class.__module__}.{obj_class.__qualname__}"
+        return Dump._get_type_module_str(obj_class)
 
     # def _dump_dict(self, obj: dict, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
     #     if self.in_detail:
@@ -428,7 +441,7 @@ class Dump(object):
         rest_chars = obj.__len__() - self.head_count
         node.set_prop("type", "str")
         node.set_attrs(self._get_attrs(str, obj))
-        node.set_value(f"{''.join(islice(obj, self.head_count))}{f' ...(more {rest_chars} chars)' if rest_chars > 0 else ''}")
+        node.set_value(f"{''.join(islice(obj, self.head_count))}{f'...(more {rest_chars} chars)' if rest_chars > 0 else ''}")
         return node
 
     # def _dump_bool(self, obj: bool, indent: int = 0, depth: int = 0, inline: bool = False) -> str:
@@ -505,12 +518,8 @@ class Dump(object):
     #     return "\n".join(pstr)
 
     def _dump_type2(self, node: Node, t: type, depth: int = 0):
-        module = t.__module__
         node.set_prop("title", "class")
-        if module == "builtins" and not t.__flags__ & (1 << 9):
-            node.set_prop("type", f"'{t.__qualname__}'")
-        else:
-            node.set_prop("type", f"'{module}.{t.__qualname__}'")
+        node.set_prop("type", self._get_type_module_str(t))
         dict_list = t.__dict__
         for index, (attr, value) in enumerate(dict_list.items()):
             if attr in self.MagicMethods:
@@ -564,7 +573,7 @@ class Dump(object):
             if self._check_head_count(index):
                 child_node = Node()
                 child_node.set_key(member)
-                self._dump2(child_node, member, depth + 1)
+                self._dump2(child_node, getattr(obj, member), depth + 1)
                 node.append_node(child_node)
             else:
                 more_node = Node()
@@ -626,7 +635,7 @@ if __name__ == "__main__":
             self.member6 = (5, 6, 7, 8)
             self.member7 = lambda x: x
             self.member8 = type
-            self.member9 = list(range(100))
+            self.member9 = range(100)
 
         class B:
             class C:
@@ -637,110 +646,10 @@ if __name__ == "__main__":
 
     d = Dump()
     d.set_in_detail(True)
-    d.head_count = 10
+    d.head_count = 100
     pf = PlainFormatter()
-    for l in pf.render(d.dump(A)):
+    # for l in pf.render(d.dump(A)):
+    #     print(l)
+    # print("=====================")
+    for l in pf.render(d.dump(A())):
         print(l)
-
-
-# Dump太费事了, 不想写了
-
-# class VarDump(object):
-#     def __init__(self):
-#         self.cached_ids = []
-#
-#     def _dump(self, v: ..., indent=0, ):
-#
-#     def dump(self, v: ...) -> str:
-#         if isinstance(v, NumberType):
-#             return v
-#         elif isinstance(v, list):
-#             res = []
-#             for vv in v:
-#                 res.append(self.dump(vv))
-#             return ', '.join(res).join(("[", "]"))
-#         elif isinstance(v, dict):
-#             res =
-
-# class DumpRequest(object):
-#
-#     @staticmethod
-#     def dump_req(req: Request):
-#         return {
-#             '': f"{req!s}",
-#             'app': DumpRequest.dump_req_app(req),
-#             'auth': DumpRequest.dump_req_auth(req),
-#             'base_url': DumpRequest.dump_req_base_url(req),
-#             'client': DumpRequest.dump_req_client(req),
-#             'cookies': DumpRequest.dump_req_cookies(req),
-#             'headers': DumpRequest.dump_req_headers(req),
-#             'method': DumpRequest.dump_req_method(req),
-#             'path_params': DumpRequest.dump_req_path_params(req),
-#             'query_params': DumpRequest.dump_req_query_params(req),
-#             'scope': DumpRequest.dump_req_scope(req),
-#             'session': DumpRequest.dump_req_session(req),
-#             'state': DumpRequest.dump_req_state(req),
-#             'url': DumpRequest.dump_req_url(req),
-#             'user': DumpRequest.dump_req_user(req),
-#         }
-#
-#     @staticmethod
-#     def dump_req_app(req: Request):
-#         try:
-#             app = req.app
-#         except Exception as e:
-#             return {'': e.__str__()}
-#
-#
-#
-#     @staticmethod
-#     def dump_req_auth(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_base_url(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_client(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_cookies(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_headers(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_method(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_path_params(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_query_params(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_scope(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_session(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_state(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_url(req: Request):
-#         ...
-#
-#     @staticmethod
-#     def dump_req_user(req: Request):
-#         ...

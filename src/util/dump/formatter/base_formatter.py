@@ -30,51 +30,46 @@ class Formatter(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _format_header(self, key: str, props: str, attrs: str, value: str, indent: int, printer: Callable[[str], None]):
+    def _format_header(self, key: str, props: str, attrs: str, value: str, indent: int, context: dict[str, Any]):
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def _arrange(self, s: list[str]):
-        raise NotImplementedError
+    # @abc.abstractmethod
+    # def _arrange(self, s: list[str]):
+    #     raise NotImplementedError
 
-    def _pre_node(self, node: Node, printer: Callable[[str], None]):
+    def _pre_node(self, node: Node, context: dict[str, Any]):
         ...
 
-    def _post_node(self, node: Node, printer: Callable[[str], None]):
+    def _post_node(self, node: Node, context: dict[str, Any]):
         ...
 
-    def _pre_render(self, node: Node):
-        ...
+    @classmethod
+    def _pre_render(self, node: Node, context: dict[str, Any]) -> Optional[Any]:
+        return None
 
-    def _post_render(self, node: Node):
-        ...
+    def _post_render(self, node: Node, context: dict[str, Any]) -> Optional[Any]:
+        return None
 
-    def _printer(self, target: list[str]):
-        def _(s: str):
-            target.append(s)
-        return _
-
-    def _format_node(self, node: Node, indent: int):
-        s: list[str] = []
-        self._pre_node(node, self._printer(s))
+    def _format_node(self, node: Node, indent: int, context: dict[str, Any]):
+        self._pre_node(node, context)
         key = self._format_key(node)
         props = self._format_props(node)
         attrs = self._format_attrs(node)
         value = self._format_value(node)
-        self._format_header(key, props, attrs, value, indent, self._printer(s))
+        yield self._format_header(key, props, attrs, value, indent, context)
         if node.children.__len__() > 0:
             for child_node in node.iter_children():
-                yield from self._format_node(child_node, indent + 1)
-        self._post_node(node, self._printer(s))
-        yield self._arrange(s)
+                yield from self._format_node(child_node, indent + 1, context)
+        self._post_node(node, context)
 
     def _render(self, node: Node) -> Generator[Generator[Any, Any, None] | None, None, None]:
-        pre = self._pre_render(node)
+        context = {}
+        pre = self._pre_render(node, context)
         if pre:
             yield pre
-        yield from self._format_node(node, 0)
-        post = self._post_render(node)
-        if post is not None or post is not NoReturn:
+        yield from self._format_node(node, 0, context)
+        post = self._post_render(node, context)
+        if post:
             yield post
 
     def render(self, node: Node):
