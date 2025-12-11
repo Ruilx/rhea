@@ -155,8 +155,41 @@ class _Color(object):
 
         return _
 
+    def magenta(self, lighter: bool = False):
+        def _(color_obj: ColorTTY):
+            color_obj.set_attr(self.ColorTarget, 5)
+            color_obj.set_attr(self.LighterTarget, int(lighter))
 
-ColorTTY.Color = _Color()
+        return _
+
+    def cyan(self, lighter: bool = False):
+        def _(color_obj: ColorTTY):
+            color_obj.set_attr(self.ColorTarget, 6)
+            color_obj.set_attr(self.LighterTarget, int(lighter))
+
+        return _
+
+    def white(self, lighter: bool = False):
+        def _(color_obj: ColorTTY):
+            color_obj.set_attr(self.ColorTarget, 7)
+            color_obj.set_attr(self.LighterTarget, int(lighter))
+
+        return _
+
+    def color_256(self, index: int):
+        def _(color_obj: ColorTTY):
+            color_obj.set_attr(self.ColorTarget, 0x28 | ((index & 0xFF) << 8))
+
+        return _
+
+    def color(self, r: int, g: int, b: int):
+        def _(color_obj: ColorTTY):
+            color_obj.set_attr(self.ColorTarget, 0x18 | ((r & 0xFF) << 24) | (g & 0xFF) << 16 | (b & 0xFF) << 8)
+
+        return _
+
+
+color = ColorTTY.Color = _Color()
 
 
 class _BackgroundColor(_Color):
@@ -164,4 +197,51 @@ class _BackgroundColor(_Color):
     LighterTarget = ColorTTY.Mode.BackgroundLighter
 
 
-ColorTTY.BackgroundColor = _BackgroundColor()
+background_color = ColorTTY.BackgroundColor = _BackgroundColor()
+
+
+def bold(enable: bool = True):
+    def _(color_obj: ColorTTY):
+        color_obj.set_attr(ColorTTY.Mode.Bold, 1 and enable)
+
+    return _
+
+
+def underline(enable: bool = True):
+    def _(color_obj: ColorTTY):
+        color_obj.set_attr(ColorTTY.Mode.Underline, 4 and enable)
+
+    return _
+
+
+def sparking(enable: bool = True):
+    def _(color_obj: ColorTTY):
+        color_obj.set_attr(ColorTTY.Mode.Sparking, 5 and enable)
+
+    return _
+
+
+def inverse(enable: bool = True):
+    def _(color_obj: ColorTTY):
+        color_obj.set_attr(ColorTTY.Mode.Inverse, 7 and enable)
+
+    return _
+
+
+def invisible(enable: bool = True):
+    def _(color_obj: ColorTTY):
+        color_obj.set_attr(ColorTTY.Mode.Invisible, 8 and enable)
+
+    return _
+
+
+if __name__ == "__main__":
+    p = colortty()
+    for i in range(0, 256, 16):
+        for j in range(0, 256, 16):
+            for k in range(0, 256, 16):
+                p.set(color.color(i, j, k))
+                p.set(sparking(j & 0x10 and True))
+                p.set(bold(k & 0x10 and True))
+                p.set(underline(i & 0x10 and True))
+                print(p.make(f"#{i:02x}{j:02x}{k:02x}"), end=" ")
