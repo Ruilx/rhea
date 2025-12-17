@@ -32,6 +32,9 @@ class ColorTTY(object):
         def make(self, s: Optional[str] = None):
             return self.color_obj.make(s)
 
+        def __str__(self):
+            if(self.color_obj.)
+
     class Mode(enum.Enum):
         Color = enum.auto()
         BackgroundColor = enum.auto()
@@ -62,6 +65,12 @@ class ColorTTY(object):
 
     def set_attr(self, mode: Mode, val: Any):
         self.attr[mode] = val
+
+    def get_attr(self, mode: Mode) -> Optional[Any]:
+        return self.attr[mode] if mode in self.attr else None
+
+    def get_string(self) -> str:
+        return self.s
 
     def statement(self):
         return ColorTTY.Statement(self)
@@ -109,7 +118,10 @@ class ColorTTY(object):
         return f"{ColorTTY.EscapeChar}[{';'.join(map(lambda x: str(x), parts))}m{string}{ColorTTY.EscapeChar}{ColorTTY.Reset}"
 
     def __str__(self):
-        return self.make(self.s)
+        return self.make(self.s) if self.s else ''
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__ }>"
 
 
 def colortty(s: Optional[str] = None):
