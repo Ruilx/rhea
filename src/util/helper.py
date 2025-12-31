@@ -40,40 +40,41 @@ SpecialString = {
 }
 
 
-def dump_obj(obj):
-    line = []
-    ids = set()
-
-    def dump_recur(o, depth=0, prefix='+-- '):
-        if isinstance(o, dict):
-            if id(o) in ids:
-                line[-1] += f"<{o.__class__.__name__} {hex(id(o))} ...>"
-                return
-            ids.add(id(o))
-            if not o:
-                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}{{}}")
-                return
-            for k, v in o.items():
-                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}{SpecialString[k] if k in SpecialString else k}: ")
-                dump_recur(v, depth + 1, prefix)
-        elif isinstance(o, list | tuple | set):
-            if id(o) in ids:
-                line[-1] += f"<{o.__class__.__name__} {hex(id(o))} ...>"
-                return
-            ids.add(id(o))
-            if not o:
-                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}[]")
-                return
-            for i, v in enumerate(o):
-                line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}[{i}]: ")
-                dump_recur(v, depth + 1, prefix)
-        elif isinstance(o, str):
-            line[-1] += f"\"{o}\""
-        else:
-            line[-1] += f"{o!s}"
-
-    dump_recur(obj)
-    return '\n'.join(line)
+# replace by dumpobj https://github.com/Ruilx/dumpobj
+# def dump_obj(obj):
+#     line = []
+#     ids = set()
+#
+#     def dump_recur(o, depth=0, prefix='+-- '):
+#         if isinstance(o, dict):
+#             if id(o) in ids:
+#                 line[-1] += f"<{o.__class__.__name__} {hex(id(o))} ...>"
+#                 return
+#             ids.add(id(o))
+#             if not o:
+#                 line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}{{}}")
+#                 return
+#             for k, v in o.items():
+#                 line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}{SpecialString[k] if k in SpecialString else k}: ")
+#                 dump_recur(v, depth + 1, prefix)
+#         elif isinstance(o, list | tuple | set):
+#             if id(o) in ids:
+#                 line[-1] += f"<{o.__class__.__name__} {hex(id(o))} ...>"
+#                 return
+#             ids.add(id(o))
+#             if not o:
+#                 line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}[]")
+#                 return
+#             for i, v in enumerate(o):
+#                 line.append(f"{' ' * 4 * (depth - 1)}{prefix if depth > 0 else ''}[{i}]: ")
+#                 dump_recur(v, depth + 1, prefix)
+#         elif isinstance(o, str):
+#             line[-1] += f"\"{o}\""
+#         else:
+#             line[-1] += f"{o!s}"
+#
+#     dump_recur(obj)
+#     return '\n'.join(line)
 
 def str_escape(s: str) -> str:
     return s.encode("unicode_escape").decode()
@@ -88,9 +89,11 @@ def get_object_id(obj: object, hex_format: bool = True) -> str:
         return hex(id(obj))
     return str(id(obj))
 
+
 def get_obj_class_str(obj: object):
     obj_class = obj.__class__
     return f"{obj_class.__module__}.{obj_class.__qualname__}"
+
 
 def get_ref_info(obj: object) -> str:
     return f"... Ref@={get_object_id(obj)}"

@@ -4,6 +4,7 @@ import enum
 from pathlib import Path
 
 import inflection
+from dumpobj import dump
 
 from src.framework.dry.base.action.abstract_action import ActionStateCause
 from src.framework.dry.base.action.base_action import BaseAction
@@ -143,4 +144,4 @@ class ActionManager(object):
         return inst
 
     def dump_router(self):
-        self.logger.info('↓\n' + helper.dump_obj(self.actions))
+        self.logger.info('↓\n' + dump(self.actions))

@@ -8,6 +8,8 @@ from http.client import HTTPException
 from fastapi import FastAPI
 from starlette.staticfiles import StaticFiles
 
+from dumpobj import dump
+
 from src.framework.dry.base.endpoint import env_handler, favicon_handler, index_handler, not_found_handler, \
     robots_handler, system_error_handler, service_error_handler, info_handler, http_exception_handler, common_http_exception
 from src.framework.dry.common.context import Context
@@ -30,7 +32,7 @@ class Application(FastAPI):
         self._setup_logger()
         self.logger = Logger().get_logger(__name__)
         self.logger.debug(f"Application start at PID:{os.getpid()} from PPID:{os.getppid()}")
-        self.logger.debug(f"Application Conf: \n{helper.dump_obj(conf)}")
+        self.logger.debug(f"Application Conf: \n{dump(conf)}")
         self._run_hook(HookName.OnAppStart, Context({}))
         self._setup_event_loop()
         self._setup_exceptions()

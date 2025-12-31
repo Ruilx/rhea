@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
 
-import objprint
 from starlette.exceptions import HTTPException
 from fastapi import Request
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, Response
