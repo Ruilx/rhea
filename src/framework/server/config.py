@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import inspect
-from typing import Callable, Any, Optional
+from typing import Callable, Any
 
 import ssl
 
@@ -18,6 +18,7 @@ from src.framework.dry.assets.about import About
 from src.framework.dry.common.context import Context, SerializableContext
 from src.framework.dry.logger import Logger
 
+from util import helper
 
 class Config(UvicornConfig):
     def __init__(self, app: ASGIApplication | Callable[..., Any] | str, conf: dict[str, Any], settings: Context):
@@ -104,6 +105,7 @@ class Config(UvicornConfig):
         try:
             self.loaded_app = self.loaded_app(self.app_conf, self.settings)
         except TypeError as exc:
+            helper.log_exception(exc, self.logger.error)
             if self.factory:
                 self.logger.error("Error loading ASGI app factory: %s", exc)
                 raise SystemExit("Error loading ASGI app factory.") from exc

@@ -18,7 +18,6 @@ from src.framework.dry.exception.httpError import HttpError, NotFoundError
 from src.framework.dry.hook.hook import Hook, HookName
 from src.framework.dry.logger import Logger, setup_loggers
 from src.framework.dry.router.router import Router
-from src.util import helper
 
 
 class Application(FastAPI):
@@ -32,7 +31,7 @@ class Application(FastAPI):
         self._setup_logger()
         self.logger = Logger().get_logger(__name__)
         self.logger.debug(f"Application start at PID:{os.getpid()} from PPID:{os.getppid()}")
-        self.logger.debug(f"Application Conf: \n{dump(conf)}")
+        self.logger.debug(f"Application Conf: \n{'\n'.join(dump(conf))}")
         self._run_hook(HookName.OnAppStart, Context({}))
         self._setup_event_loop()
         self._setup_exceptions()

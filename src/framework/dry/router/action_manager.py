@@ -144,4 +144,4 @@ class ActionManager(object):
         return inst
 
     def dump_router(self):
-        self.logger.info('↓\n' + dump(self.actions))
+        self.logger.info(f"↓\n{'\n'.join(dump(self.actions))}")

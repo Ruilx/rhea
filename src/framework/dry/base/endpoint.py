@@ -5,6 +5,8 @@ from starlette.exceptions import HTTPException
 from fastapi import Request
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
+from dumpobj import dump
+
 from src.framework.dry.assets.about import __slogan__
 from src.framework.dry.exception.httpError import HttpError, RejectedError, NotFoundError, NoPermit, AuthError
 
@@ -14,7 +16,7 @@ async def index_handler(request: Request) -> Response:
 
 
 async def info_handler(request: Request) -> Response:
-    return PlainTextResponse(objprint.objjson(request.app))
+    return PlainTextResponse("\n".join(dump(request.app)))
 
 
 async def env_handler(request: Request) -> Response:
