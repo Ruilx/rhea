@@ -2,6 +2,7 @@
 import asyncio
 import enum
 from pathlib import Path
+from typing import Any
 
 import inflection
 from dumpobj import dump
@@ -24,7 +25,7 @@ class ActionManager(object):
     def __init__(self, app_path: Path, action_lru: Lru):
         self.app_path = app_path
         self.action_lru = action_lru
-        self.actions: [str, dict[str, dict[str, dict[str, ...]]]] = {}
+        self.actions: dict[str, dict[str, dict[str, dict[str, Any]]]] = {}
         self.event_loop = asyncio.get_running_loop()
         self.logger = Logger().get_logger(__name__)
 

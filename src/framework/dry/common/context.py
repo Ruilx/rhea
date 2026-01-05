@@ -27,6 +27,9 @@ class Context(object):
     def __contains__(self, name: str):
         return name in self._storage
 
+    def _dump(self):
+        return self._storage
+
 
 class SerializableContext(Context):
     def __init__(self, storage: dict[str, SerializableType]):
